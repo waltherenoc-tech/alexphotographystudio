@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Alex's Photografor — Tu historia, a través de mi lente</title>
+<meta name="description" content="Alex's Photografor — fotografía editorial de parejas, bodas y retratos. Tu historia, a través de mi lente.">
+<meta name="theme-color" content="#0c0b0a">
+<!--
+  ============================================================
+  INTRO CINEMATOGRÁFICA — CÓMO FUNCIONA
+  ------------------------------------------------------------
+  Modo actual: ANIMACIÓN (no es un video generado).
+    · Cámara y lente dibujados en SVG vectorial (nítido a cualquier zoom),
+      con zoom por viewBox, máscara circular y transición a la escena final.
+    · La escena final es la MISMA imagen que la portada (hero), por eso
+      el empalme con la página es exacto.
+ 
+  Para pasar a VIDEO MP4: rellena CFG.introVideo (y opcionalmente
+  CFG.introVideoPortrait y CFG.introPoster) más abajo. El sitio usará el
+  video automáticamente; si falla, muestra la página directamente.
+ 
+  Para usar una FOTO real de cámara: rellena CFG.cameraPhoto con la ruta y
+  la posición del lente en la foto (fracciones 0–1).
+ 
+  Forzar intro para pruebas: ?intro=1   ·   Desactivarla: ?intro=0
+  ============================================================
+-->
+<script>
+  /* Decide antes del primer pintado si la intro debe mostrarse (evita parpadeo) */
+  (function () {
+    var d = document.documentElement, q = location.search;
+    d.classList.add('js');
+    var force = /[?&]intro=1\b/.test(q), off = /[?&]intro=0\b/.test(q);
+    /* La intro se reproduce en cada carga/recarga (excepto con movimiento reducido) */
+    if (!off) d.classList.add('intro-pending');
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://images.pexels.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Manrope:wght@300;400;500;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0c0b0a; --ink-2:#161412; --paper:#f4f0e9; --sand:#e8e0d3; --line:rgba(244,240,233,.14);
+    --amber:#c98f55; --amber-2:#e2b07a; --muted:#8c8376; --muted-2:#b9b0a2;
+    --serif:'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+    --sans:'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --hero-pos:50% 42%;
+    --hero-shade:linear-gradient(180deg, rgba(10,9,8,.42) 0%, rgba(10,9,8,.06) 30%, rgba(10,9,8,.10) 50%, rgba(10,9,8,.6) 76%, rgba(10,9,8,.9) 92%, #0a0908 100%);
+    --sunset:radial-gradient(120% 80% at 50% 62%, #f0b27a 0%, #c96f45 26%, #6e3a35 52%, #241a1f 78%, #0d0b0c 100%);
+    --gutter:clamp(16px, 5vw, 64px);
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--ink);color:var(--paper);font-family:var(--sans);font-weight:400;font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  img,video,svg{display:block;max-width:100%}
+  a{color:inherit;text-decoration:none}
+  button,input,select,textarea{font:inherit;color:inherit}
+  .intro-pending body{overflow:hidden}
+  :focus-visible{outline:2px solid var(--amber-2);outline-offset:3px}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+ 
+  /* ===================== INTRO ===================== */
+  #intro{position:fixed;inset:0;z-index:1000;display:none;background:#050505;overflow:hidden;opacity:1;contain:strict}
+  .intro-pending #intro, #intro.on{display:block}
+  #intro.done{opacity:0;pointer-events:none}
+  #intro .layer{position:absolute;inset:0}
+  #intro .cam-photo{position:absolute;left:0;top:0;transform-origin:0 0;z-index:1;display:none;max-width:none}
+  #intro .scene{z-index:2;background:var(--sunset);clip-path:circle(0px at 50% 50%);-webkit-clip-path:circle(0px at 50% 50%)}
+  #intro .scene img{width:100%;height:100%;object-fit:cover;object-position:var(--hero-pos);transform-origin:50% 56%}
+  #intro .scene-shade{z-index:2;background:var(--hero-shade);opacity:0}
+  #intro svg.cam{position:absolute;inset:0;z-index:3;width:100%;height:100%;opacity:0}
+  #intro .scene-dim{z-index:2;background:#050608;opacity:.78;pointer-events:none}
+  #intro .grain{z-index:4;opacity:.07;background-size:160px 160px;mix-blend-mode:overlay;pointer-events:none}
+  #intro .vignette{z-index:4;pointer-events:none;background:radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.55) 100%)}
+  #intro video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:5;background:#050505}
+  #intro .skip{position:absolute;z-index:6;top:max(16px, env(safe-area-inset-top));right:max(16px, env(safe-area-inset-right));
+    display:inline-flex;align-items:center;gap:10px;padding:11px 18px;min-height:44px;border-radius:999px;cursor:pointer;
+    background:rgba(12,11,10,.42);border:1px solid rgba(244,240,233,.28);color:var(--paper);
+    font:500 12px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);opacity:0;transition:opacity .6s ease, background .3s ease, border-color .3s ease}
+  #intro .skip.show{opacity:1}
+  #intro .skip:hover{background:rgba(12,11,10,.7);border-color:rgba(244,240,233,.6)}
+  #intro .skip svg{width:12px;height:12px}
+ 
+  /* ===================== NAV ===================== */
+  .nav{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;justify-content:space-between;gap:16px;
+    padding:18px var(--gutter);padding-top:max(18px, env(safe-area-inset-top));transition:background .4s ease, padding .4s ease, border-color .4s ease;border-bottom:1px solid transparent}
+  .nav.scrolled{background:rgba(12,11,10,.82);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);padding-top:12px;padding-bottom:12px;border-color:var(--line)}
+  .brand{display:inline-block;padding:6px 0;font-family:var(--serif);font-size:clamp(20px, 2.4vw, 24px);font-weight:500;letter-spacing:.01em;white-space:nowrap}
+  .brand em{font-style:italic;color:var(--amber-2)}
+  .nav-links{display:flex;align-items:center;gap:clamp(18px, 2.6vw, 36px);list-style:none;margin:0;padding:0}
+  .nav-links a{font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted-2);transition:color .3s}
+  .nav-links a:hover{color:var(--paper)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:12px;min-height:48px;padding:14px 26px;border-radius:999px;cursor:pointer;
+    font:500 12px/1 var(--sans);letter-spacing:.2em;text-transform:uppercase;border:1px solid var(--paper);background:var(--paper);color:var(--ink);
+    transition:background .35s ease, color .35s ease, border-color .35s ease, transform .35s ease}
+  .btn:hover{background:transparent;color:var(--paper)}
+  .btn.ghost{background:transparent;color:var(--paper);border-color:rgba(244,240,233,.4)}
+  .btn.ghost:hover{border-color:var(--paper);background:rgba(244,240,233,.06)}
+  .btn svg{width:14px;height:14px;transition:transform .35s ease}
+  .btn:hover svg{transform:translateX(4px)}
+  .nav .btn{min-height:40px;padding:11px 18px}
+  .nav-right{display:flex;align-items:center;gap:12px}
+  .lang{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:transparent;cursor:pointer;
+    font:500 11px/1 var(--sans);letter-spacing:.18em;color:var(--muted);transition:border-color .3s}
+  .lang:hover{border-color:rgba(244,240,233,.45)}
+  .lang .sep{opacity:.4}
+  .lang [data-l]{transition:color .3s}
+  html[lang="es"] .lang [data-l="es"], html[lang="en"] .lang [data-l="en"]{color:var(--paper)}
+  .menu-btn{display:none;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:transparent;cursor:pointer;align-items:center;justify-content:center}
+  .menu-btn span{display:block;width:18px;height:1px;background:var(--paper);position:relative}
+  .menu-btn span::before,.menu-btn span::after{content:"";position:absolute;left:0;width:18px;height:1px;background:var(--paper);transition:transform .3s}
+  .menu-btn span::before{top:-6px}.menu-btn span::after{top:6px}
+  .menu-open .menu-btn span{background:transparent}
+  .menu-open .menu-btn span::before{transform:translateY(6px) rotate(45deg)}
+  .menu-open .menu-btn span::after{transform:translateY(-6px) rotate(-45deg)}
+ 
+  /* ===================== HERO ===================== */
+  .hero{position:relative;height:100vh;height:100dvh;min-height:520px;overflow:hidden;background:var(--sunset)}
+  .hero-media{position:absolute;inset:0}
+  .hero-media img{width:100%;height:100%;object-fit:cover;object-position:var(--hero-pos)}
+  .hero-media video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.6s ease}
+  .hero-media video.on{opacity:1}
+  .hero-media video.rise{animation:droneRise 3.2s cubic-bezier(.3,.6,.2,1) both}
+  @keyframes droneRise{0%{transform:scale(1.18) translate3d(0,4%,0);filter:blur(6px)}55%{filter:blur(0)}100%{transform:none;filter:none}}
+  .hero-media::after{content:"";position:absolute;inset:0;background:var(--hero-shade)}
+  .hero-copy{position:absolute;left:0;right:0;bottom:0;padding:0 var(--gutter) clamp(56px, 11vh, 120px);text-align:center;display:flex;flex-direction:column;align-items:center}
+  .eyebrow{font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:var(--muted-2);margin:0 0 18px}
+  .hero h1{font-family:var(--serif);font-weight:400;font-size:clamp(46px, 10.5vw, 136px);line-height:.92;letter-spacing:-.015em;margin:0}
+  .hero h1 em{font-style:italic;color:var(--amber-2)}
+  .hero .tagline{font-family:var(--serif);font-style:italic;font-size:clamp(20px, 2.6vw, 30px);color:var(--sand);margin:18px 0 34px;line-height:1.3}
+  .sample-note{position:absolute;z-index:2;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:rgba(244,240,233,.6);background:rgba(12,11,10,.45);padding:5px 9px;border-radius:4px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+  .hero .sample-note{left:var(--gutter);top:calc(max(18px, env(safe-area-inset-top)) + 64px)}
+  .scroll-cue{position:absolute;right:var(--gutter);bottom:clamp(56px, 11vh, 120px);writing-mode:vertical-rl;font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--muted-2);display:flex;align-items:center;gap:12px}
+  .scroll-cue::after{content:"";width:1px;height:48px;background:linear-gradient(var(--muted-2), transparent)}
+  /* Entrada del texto de portada (al terminar la intro) */
+  .js .hero-copy > *{opacity:0;transform:translateY(16px);transition:opacity 1s cubic-bezier(.2,.7,.2,1), transform 1s cubic-bezier(.2,.7,.2,1)}
+  .js .hero-in .hero-copy > *{opacity:1;transform:none}
+  .js .hero-in .hero-copy > :nth-child(2){transition-delay:.12s}
+  .js .hero-in .hero-copy > :nth-child(3){transition-delay:.26s}
+  .js .hero-in .hero-copy > :nth-child(4){transition-delay:.4s}
+  .js .nav{opacity:0;transition:opacity .8s ease .5s, background .4s ease, padding .4s ease, border-color .4s ease}
+  .js .hero-in .nav{opacity:1}
+ 
+  /* ===================== SECTIONS ===================== */
+  section{position:relative}
+  .wrap{max-width:1240px;margin:0 auto;padding:0 var(--gutter)}
+  .sec{padding:clamp(80px, 13vw, 160px) 0}
+  .label{display:flex;align-items:center;gap:14px;font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--amber-2);margin:0 0 22px}
+  .label::before{content:"";width:28px;height:1px;background:currentColor}
+  h2{font-family:var(--serif);font-weight:400;font-size:clamp(36px, 5.6vw, 72px);line-height:1.02;letter-spacing:-.01em;margin:0}
+  h2 em{font-style:italic;color:var(--amber-2)}
+  .lead{font-size:clamp(16px, 1.6vw, 18px);color:var(--muted-2);max-width:56ch}
+ 
+  /* "La mirada" — fondo de lente: diafragma dorado, luz cálida a través del cristal y escala de enfoque */
+  .statement{position:relative;overflow:hidden;isolation:isolate;border-bottom:1px solid var(--line);background:var(--ink);
+    padding:clamp(96px, 15vw, 190px) 0 clamp(110px, 16vw, 200px)}
+  .statement .eye-bg{position:absolute;inset:0;z-index:-1;pointer-events:none}
+  .statement .eye-glow{position:absolute;right:max(-14vw, -180px);top:50%;width:min(78vw, 880px);aspect-ratio:1;transform:translateY(-50%);border-radius:50%;
+    background:radial-gradient(circle, rgba(226,150,90,.30) 0%, rgba(201,111,69,.14) 22%, rgba(110,58,53,.07) 42%, transparent 64%);
+    animation:eyeBreathe 9s ease-in-out infinite alternate}
+  .statement .eye-iris{position:absolute;right:max(-14vw, -180px);top:50%;width:min(78vw, 880px);height:auto;transform:translateY(-50%);color:var(--amber-2);opacity:.2}
+  .statement .eye-iris .blades{transform-origin:0 0;animation:eyeSpin 90s linear infinite}
+  .statement .eye-iris .ring{transform-origin:0 0;animation:eyeSpin 240s linear infinite reverse}
+  .statement .eye-flare{position:absolute;inset:0;background:linear-gradient(105deg, transparent 30%, rgba(255,224,180,.05) 46%, rgba(255,224,180,.10) 50%, rgba(255,224,180,.05) 54%, transparent 70%);
+    background-size:240% 100%;animation:eyeFlare 14s ease-in-out infinite}
+  .statement .eye-bg::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg, var(--ink) 0%, rgba(12,11,10,.86) 34%, rgba(12,11,10,.2) 70%, rgba(12,11,10,.35) 100%)}
+  .statement .eye-bg::after{content:"";position:absolute;inset:0;opacity:.05;mix-blend-mode:overlay;background-image:var(--grain-url, none);background-size:160px}
+  .statement .eye-scale{position:absolute;left:var(--gutter);right:var(--gutter);bottom:clamp(28px, 4vw, 48px);height:30px;color:var(--muted)}
+  .statement .eye-scale::before{content:"";position:absolute;left:0;right:0;top:0;height:7px;border-bottom:1px solid rgba(244,240,233,.14);
+    background:linear-gradient(90deg, rgba(244,240,233,.28) 1px, transparent 1px) 0 0/2.5% 100% repeat-x}
+  .statement .eye-scale span{position:absolute;top:14px;transform:translateX(-50%);font:500 10px/1 ui-monospace, Menlo, monospace;letter-spacing:.12em}
+  .statement .eye-scale .now{color:var(--amber-2)}
+  .statement .eye-scale .mk{position:absolute;top:-7px;width:1px;height:14px;background:var(--amber-2);left:62%;animation:eyeFocus 12s cubic-bezier(.5,0,.3,1) infinite}
+  @keyframes eyeSpin{to{transform:rotate(360deg)}}
+  @keyframes eyeBreathe{from{opacity:.75;transform:translateY(-50%) scale(.96)}to{opacity:1;transform:translateY(-50%) scale(1.04)}}
+  @keyframes eyeFlare{0%,100%{background-position:120% 0}50%{background-position:-20% 0}}
+  @keyframes eyeFocus{0%,100%{left:62%}30%{left:44%}55%{left:78%}80%{left:62%}}
+  .statement .wrap{position:relative;display:grid;grid-template-columns:1fr;gap:28px}
+  .statement p:not(.label){font-family:var(--serif);font-size:clamp(26px, 3.8vw, 48px);line-height:1.22;margin:0;max-width:24ch}
+  .statement .label{margin:0}
+  .statement p em{color:var(--amber-2)}
+  @media (max-width:860px){
+    .statement .eye-glow,.statement .eye-iris{right:50%;width:min(120vw, 640px);transform:translate(50%,-50%)}
+    @keyframes eyeBreathe{from{opacity:.7;transform:translate(50%,-50%) scale(.96)}to{opacity:1;transform:translate(50%,-50%) scale(1.04)}}
+    .statement .eye-iris{opacity:.14}
+    .statement .eye-bg::before{background:radial-gradient(ellipse at center, rgba(12,11,10,.45) 0%, rgba(12,11,10,.8) 70%, var(--ink) 100%)}
+    .statement .eye-scale span:nth-child(even){display:none}
+  }
+ 
+  .port-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:clamp(36px, 5vw, 64px)}
+  .grid{display:grid;grid-template-columns:repeat(12, 1fr);gap:clamp(10px, 1.4vw, 18px)}
+  .tile{position:relative;overflow:hidden;border-radius:2px;background:var(--ink-2);margin:0}
+  .tile img{width:100%;height:100%;object-fit:cover;transition:transform 1.4s cubic-bezier(.2,.7,.2,1), filter .8s ease;filter:saturate(.92)}
+  .tile:hover img{transform:scale(1.04);filter:saturate(1)}
+  .tile figcaption{position:absolute;left:14px;right:14px;bottom:12px;display:flex;justify-content:space-between;align-items:flex-end;gap:10px;font-size:12px;color:var(--sand)}
+  .tile figcaption b{font-family:var(--serif);font-weight:400;font-style:italic;font-size:20px;color:var(--paper)}
+  .tile::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg, transparent 55%, rgba(8,7,6,.7));pointer-events:none}
+  .tile figcaption{z-index:1;transition:opacity .35s ease}
+  .tile .sample-note{top:12px;left:12px;z-index:6}
+ 
+  /* ===================== EFECTO PORTAFOLIO: láminas de obturador + enfoque selectivo + visor ampliado ===================== */
+  .tile.gx{cursor:zoom-in;-webkit-tap-highlight-color:transparent;isolation:isolate;background:#050505;
+    transition:filter .6s ease, opacity .6s ease, box-shadow .6s ease, transform .6s cubic-bezier(.2,.7,.2,1)}
+  .tile.gx img{transform:scale(var(--s,1.02));transition:transform 1.2s cubic-bezier(.2,.7,.2,1), filter .8s ease}
+  .tile.gx:hover{--s:1.06;box-shadow:0 30px 60px -24px rgba(0,0,0,.8)}
+  .tile.gx::after{background:linear-gradient(180deg, transparent 55%, rgba(8,7,6,.6));opacity:0;transition:opacity .6s ease}
+  .tile.gx:hover::after,.tile.gx:focus-visible::after{opacity:1}
+  /* enfoque selectivo: la foto señalada queda nítida, las demás se desenfocan */
+  .grid.dof .tile.gx:not(.infocus){filter:blur(4px) brightness(.55) saturate(.7);transform:scale(.98)}
+  .grid.dof .tile.gx.infocus{transform:scale(1.015)}
+  /* láminas del obturador */
+  .tile.gx .slats{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;pointer-events:none}
+  .tile.gx .slats i{flex:1;margin-top:-1px;background:linear-gradient(180deg, #121110, #0a0908 70%, #050505);
+    box-shadow:inset 0 -1px 0 rgba(226,176,122,.18);transform-origin:50% 0;transform:scaleY(0)}
+  .tile.gx.sl .slats i{transform:scaleY(1)}
+  .tile.gx.sl img{transform:scale(1.12);filter:brightness(.7)}
+  .tile.gx.sl.slin .slats i{transform:scaleY(0);transition:transform .7s cubic-bezier(.7,0,.25,1) calc(var(--k) * 70ms)}
+  .tile.gx.sl.slin img{transform:scale(1.02);filter:none;transition:transform 2s cubic-bezier(.2,.7,.2,1) .2s, filter 1.2s ease .3s}
+  .tile.gx .zoom{position:absolute;left:50%;top:50%;z-index:2;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;
+    border:1px solid rgba(244,240,233,.75);display:grid;place-items:center;color:var(--paper);
+    -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);background:rgba(12,11,10,.25);opacity:0;transform:scale(.7);transition:opacity .45s ease, transform .6s cubic-bezier(.2,.7,.2,1);pointer-events:none}
+  .tile.gx .zoom svg{width:18px;height:18px}
+  .tile.gx .idx{position:absolute;left:18px;bottom:14px;z-index:2;font-family:var(--serif);font-style:italic;font-size:22px;color:var(--paper);
+    opacity:0;transform:translateY(8px);transition:opacity .5s ease, transform .6s cubic-bezier(.2,.7,.2,1);pointer-events:none}
+  .tile.gx .idx small{font-family:var(--sans);font-style:normal;font-size:11px;letter-spacing:.2em;color:var(--muted-2);margin-left:6px}
+  .tile.gx:hover .zoom,.tile.gx:focus-visible .zoom{opacity:1;transform:none}
+  .tile.gx:hover .idx,.tile.gx:focus-visible .idx{opacity:1;transform:none}
+  @media (hover:none){ .tile.gx .idx{opacity:1;transform:none} .tile.gx::after{opacity:.6} }
+ 
+  /* Visor ampliado (lightbox) */
+  .lb{position:fixed;inset:0;z-index:900;display:flex;align-items:center;justify-content:center;background:rgba(8,7,6,.95);
+    opacity:0;visibility:hidden;transition:opacity .45s ease, visibility .45s;padding:72px 16px 84px;touch-action:pan-y}
+  .lb.open{opacity:1;visibility:visible;transition:opacity .45s ease, visibility 0s}
+  .lb img{display:block;max-width:min(100%, 1500px);max-height:100%;width:auto;height:auto;object-fit:contain;box-shadow:0 30px 90px rgba(0,0,0,.6);
+    opacity:0;transform:scale(.95);transition:opacity .45s ease, transform .7s cubic-bezier(.2,.7,.2,1)}
+  .lb img.shown{opacity:1;transform:none}
+  .lb button{position:absolute;display:grid;place-items:center;width:52px;height:52px;border-radius:50%;cursor:pointer;color:var(--paper);
+    background:rgba(244,240,233,.06);border:1px solid rgba(244,240,233,.25);transition:background .3s, border-color .3s}
+  .lb button:hover{background:rgba(244,240,233,.14);border-color:rgba(244,240,233,.6)}
+  .lb button svg{width:18px;height:18px}
+  .lb .lb-close{top:max(16px, env(safe-area-inset-top));right:16px}
+  .lb .lb-prev{left:max(16px, env(safe-area-inset-left));top:50%;margin-top:-26px}
+  .lb .lb-next{right:max(16px, env(safe-area-inset-right));top:50%;margin-top:-26px}
+  .lb .lb-count{position:absolute;left:0;right:0;bottom:calc(26px + env(safe-area-inset-bottom));text-align:center;font-family:var(--serif);font-style:italic;font-size:20px;color:var(--sand)}
+  .lb .lb-count span{color:var(--muted)}
+  @media (max-width:639px){
+    .lb{padding:64px 10px 96px}
+    .lb .lb-prev,.lb .lb-next{top:auto;bottom:calc(14px + env(safe-area-inset-bottom));margin-top:0}
+    .lb .lb-prev{left:16px}.lb .lb-next{right:16px}
+  }
+  .p1,.p2,.p3{grid-column:span 4;aspect-ratio:4/5}
+  .t1{grid-column:span 7;aspect-ratio:4/3}
+  .t2{grid-column:span 5;aspect-ratio:4/5}
+  .t3{grid-column:span 4;aspect-ratio:3/4}
+  .t4{grid-column:span 4;aspect-ratio:3/4}
+  .t5{grid-column:span 4;aspect-ratio:3/4}
+  .t6{grid-column:span 12;aspect-ratio:21/9}
+  .port-note{margin-top:22px;font-size:13px;color:var(--muted)}
+ 
+  /* Servicios: fondo que continúa la portada (mismo paisaje difuminado + luz cálida en movimiento) */
+  .services{position:relative;overflow:hidden;isolation:isolate;background:#0a0908;color:var(--paper);margin-top:-1px}
+  .services .flow{position:absolute;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+  .services .flow .ph{position:absolute;inset:-12%;background:var(--sunset);background-size:cover;background-position:var(--hero-pos);
+    filter:blur(40px) saturate(1.15) brightness(.6);opacity:.6;transform:scale(1.1);animation:flowDrift 30s ease-in-out infinite alternate}
+  .services .flow .glow{position:absolute;width:75vmax;height:75vmax;border-radius:50%;filter:blur(50px);opacity:.32;mix-blend-mode:screen}
+  .services .flow .glow.a{left:-25%;top:-35%;background:radial-gradient(circle, #d08f55 0%, transparent 62%);animation:glowA 22s ease-in-out infinite alternate}
+  .services .flow .glow.b{right:-30%;bottom:-40%;background:radial-gradient(circle, #8a4a3e 0%, transparent 62%);animation:glowB 27s ease-in-out infinite alternate}
+  .services .flow::after{content:"";position:absolute;inset:0;
+    background:linear-gradient(180deg, #0a0908 0%, rgba(10,9,8,.86) 8%, rgba(10,9,8,.5) 26%, rgba(10,9,8,.55) 72%, var(--ink) 100%)}
+  @keyframes flowDrift{0%{transform:scale(1.1) translate3d(-2%,-1%,0)}100%{transform:scale(1.22) translate3d(2.5%,2%,0)}}
+  @keyframes glowA{0%{transform:translate3d(0,0,0)}100%{transform:translate3d(18%,22%,0)}}
+  @keyframes glowB{0%{transform:translate3d(0,0,0)}100%{transform:translate3d(-20%,-16%,0)}}
+  .services .label{color:var(--amber-2)}
+  .services h2 em{color:var(--amber-2)}
+  .services .lead{color:var(--muted-2)}
+  .svc-list{margin-top:clamp(40px, 6vw, 72px);border-top:1px solid var(--line)}
+  .svc{display:grid;grid-template-columns:70px 1fr 1.2fr;gap:24px;padding:clamp(26px, 3.4vw, 40px) 12px;margin:0 -12px;border-bottom:1px solid var(--line);align-items:baseline;
+    transition:background .6s ease}
+  .svc:is(:hover,.act){background:linear-gradient(90deg, rgba(226,176,122,.08), transparent 70%)}
+  .svc .n{font-family:var(--serif);font-style:italic;font-size:20px;color:var(--amber-2)}
+  .svc h3{font-family:var(--serif);font-weight:500;font-size:clamp(26px, 3vw, 38px);margin:0;line-height:1.1;transition:transform .6s cubic-bezier(.2,.7,.2,1)}
+  .svc:is(:hover,.act) h3{transform:translateX(6px)}
+  .svc p{margin:0;color:var(--muted-2)}
+ 
+  .about .wrap{display:grid;grid-template-columns:5fr 7fr;gap:clamp(36px, 6vw, 96px);align-items:center}
+  .portrait{position:relative;aspect-ratio:4/5;border:1px solid var(--line);background:
+      radial-gradient(90% 70% at 50% 35%, rgba(201,143,85,.16), transparent 70%), var(--ink-2);display:grid;place-items:center;text-align:center;padding:24px}
+  .portrait span{font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--muted)}
+  .portrait.has-photo{padding:0}
+  .portrait .portrait-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 25%;z-index:1;
+    transition:transform 1.4s cubic-bezier(.2,.7,.2,1), filter .8s ease}
+  .portrait.has-photo:hover .portrait-img{transform:scale(1.03)}
+  .portrait.has-photo::before,.portrait.has-photo::after{z-index:2}
+  .portrait::before,.portrait::after{content:"";position:absolute;width:28px;height:28px;border:1px solid var(--amber)}
+  .portrait::before{top:-8px;left:-8px;border-right:0;border-bottom:0}
+  .portrait::after{bottom:-8px;right:-8px;border-left:0;border-top:0}
+ 
+  /* ===== Efecto de la foto de Alex: horquillado de exposición (−2 · 0 · +2 EV) ===== */
+  .about{overflow-x:hidden;overflow-x:clip}
+  .portrait.ev{overflow:visible;margin-bottom:46px !important}
+  .portrait.ev::before,.portrait.ev::after{z-index:2}
+  .portrait.ev .portrait-img{transition:transform .9s cubic-bezier(.2,.7,.2,1), opacity .6s ease, box-shadow .6s ease}
+  .portrait .br{position:absolute;inset:0;z-index:0;pointer-events:none;background-color:#111;background-size:cover;background-position:50% 25%;
+    box-shadow:0 18px 40px -16px rgba(0,0,0,.8);opacity:0;transition:transform .9s cubic-bezier(.2,.7,.2,1), opacity .6s ease}
+  .portrait .br.u{filter:brightness(.42) contrast(1.1)}
+  .portrait .br.o{filter:brightness(1.75) contrast(.75) saturate(.8)}
+  .portrait .br b{position:absolute;top:10px;font:600 10px/1 ui-monospace, Menlo, monospace;letter-spacing:.12em;color:#f1d3a6;text-shadow:0 1px 2px rgba(0,0,0,.7)}
+  .portrait .br.u b{left:10px}.portrait .br.o b{right:10px}
+  .portrait .ev-scale{position:absolute;left:8%;right:8%;bottom:-38px;height:22px;z-index:2;pointer-events:none;opacity:0;transition:opacity .6s ease}
+  .portrait .ev-scale .ticks{position:absolute;left:0;right:0;top:0;height:8px;
+    background:linear-gradient(90deg, rgba(244,240,233,.55) 1px, transparent 1px) 0 0/12.5% 100% repeat-x;border-bottom:1px solid rgba(244,240,233,.25)}
+  .portrait .ev-scale .ticks::after{content:"";position:absolute;right:0;top:0;width:1px;height:8px;background:rgba(244,240,233,.55)}
+  .portrait .ev-scale .lbl{position:absolute;top:12px;left:0;right:0;display:flex;justify-content:space-between;
+    font:600 9px/1 ui-monospace, Menlo, monospace;letter-spacing:.08em;color:var(--muted-2)}
+  .portrait .ev-scale .lbl span:nth-child(3){color:var(--amber-2)}
+  .portrait .ev-scale .mk{position:absolute;top:-6px;left:50%;width:0;height:0;margin-left:-5px;border:5px solid transparent;border-top:6px solid var(--amber-2);
+    transition:left .45s cubic-bezier(.5,0,.3,1)}
+  /* hover: las otras exposiciones asoman */
+  .portrait.ev:is(:hover,.ev-peek) .br{opacity:1}
+  .portrait.ev:is(:hover,.ev-peek) .br.u{transform:translate3d(-7%,2%,0) rotate(-4deg)}
+  .portrait.ev:is(:hover,.ev-peek) .br.o{transform:translate3d(7%,2%,0) rotate(4deg)}
+  .portrait.ev:is(:hover,.ev-peek) .ev-scale{opacity:1}
+  .portrait.ev:is(:hover,.ev-peek) .portrait-img{transform:translateY(-6px);box-shadow:0 24px 50px -18px rgba(0,0,0,.85)}
+  /* secuencia de entrada */
+  .portrait.ev.ev-ready .portrait-img{opacity:0;transform:scale(.94)}
+  .portrait.ev.ev-ready::before,.portrait.ev.ev-ready::after{opacity:0}
+  .portrait.ev.ev-fan .br{opacity:1}
+  .portrait.ev.ev-fan .br.u{transform:translate3d(-16%,3%,0) rotate(-8deg)}
+  .portrait.ev.ev-fan .br.o{transform:translate3d(16%,3%,0) rotate(8deg)}
+  .portrait.ev.ev-fan .portrait-img{opacity:1;transform:scale(.97);box-shadow:0 24px 50px -18px rgba(0,0,0,.85);transition:opacity .6s ease .35s, transform .9s cubic-bezier(.2,.7,.2,1) .35s}
+  .portrait.ev.ev-fan .ev-scale{opacity:1}
+  .portrait.ev.ev-close .br{opacity:0;transform:none;transition:transform .9s cubic-bezier(.7,0,.25,1), opacity .5s ease .5s}
+  .portrait.ev.ev-close .portrait-img{transform:none;box-shadow:none}
+  .portrait.ev.ev-close .ev-scale{opacity:0;transition:opacity .6s ease .6s}
+  .portrait.ev.ev-close::before,.portrait.ev.ev-close::after{opacity:1;transition:opacity .8s ease .5s}
+  @media (max-width:639px){ .portrait.ev.ev-fan .br.u{transform:translate3d(-9%,3%,0) rotate(-6deg)} .portrait.ev.ev-fan .br.o{transform:translate3d(9%,3%,0) rotate(6deg)} }
+  .about p{color:var(--muted-2);max-width:54ch}
+  .sign{font-family:var(--serif);font-style:italic;font-size:30px;color:var(--paper);margin-top:26px}
+ 
+  .process{border-top:1px solid var(--line)}
+  .steps{display:grid;grid-template-columns:repeat(3, 1fr);gap:clamp(24px, 3vw, 48px);margin-top:clamp(40px, 6vw, 72px);counter-reset:s}
+  .step{border-top:1px solid var(--line);padding-top:26px}
+  .step::before{counter-increment:s;content:"0" counter(s);font-family:var(--serif);font-style:italic;font-size:22px;color:var(--amber-2)}
+  .step h3{font-family:var(--serif);font-weight:500;font-size:28px;margin:10px 0 8px}
+  .step p{margin:0;color:var(--muted-2)}
+ 
+  .contact{background:var(--ink-2);border-top:1px solid var(--line)}
+  .contact .wrap{display:grid;grid-template-columns:5fr 7fr;gap:clamp(36px, 6vw, 96px)}
+  .contact-info p{color:var(--muted-2)}
+  form{display:grid;grid-template-columns:1fr 1fr;gap:18px 20px}
+  .field{display:flex;flex-direction:column;gap:8px}
+  .field.full{grid-column:1/-1}
+  .field label{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+  .field input,.field select,.field textarea{width:100%;min-height:50px;padding:13px 0;background:transparent;border:0;border-bottom:1px solid rgba(244,240,233,.24);border-radius:0;font-size:16px;color:var(--paper);transition:border-color .3s;-webkit-appearance:none;appearance:none}
+  .field select{background-image:linear-gradient(45deg, transparent 50%, var(--muted-2) 50%), linear-gradient(135deg, var(--muted-2) 50%, transparent 50%);background-position:calc(100% - 10px) 50%, calc(100% - 5px) 50%;background-size:5px 5px;background-repeat:no-repeat;padding-right:24px}
+  .field select option{background:var(--ink-2);color:var(--paper)}
+  .field textarea{min-height:120px;resize:vertical}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--amber-2)}
+  .form-foot{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:18px;margin-top:10px}
+  .form-msg{font-size:14px;color:var(--muted-2);min-height:1.4em}
+  .form-msg.ok{color:#a9c79a}.form-msg.err{color:#e29a86}
+ 
+  footer{padding:48px 0 calc(48px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
+  footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:18px;font-size:13px;color:var(--muted)}
+  footer nav{display:flex;flex-wrap:wrap;gap:22px}
+  footer a:hover{color:var(--paper)}
+ 
+  .reveal{opacity:0;transform:translateY(24px);transition:opacity 1s ease, transform 1s cubic-bezier(.2,.7,.2,1)}
+  .reveal.in{opacity:1;transform:none}
+  html:not(.js) .reveal{opacity:1;transform:none}
+ 
+  /* ===================== RESPONSIVE ===================== */
+  @media (max-width:1024px){
+    .contact .wrap{grid-template-columns:1fr}
+    .about .wrap{grid-template-columns:5fr 6fr;gap:clamp(28px, 5vw, 56px)}
+    .t1{grid-column:span 12}.t2{grid-column:span 6}.t3{grid-column:span 6}
+    .t4{grid-column:span 6}.t5{grid-column:span 6}.t6{grid-column:span 12;aspect-ratio:16/9}
+  }
+  @media (max-width:860px){
+    .nav-links{position:fixed;inset:0;z-index:-1;flex-direction:column;justify-content:center;gap:28px;background:rgba(12,11,10,.97);opacity:0;visibility:hidden;transition:opacity .4s, visibility .4s}
+    .nav-links a{font-family:var(--serif);font-size:clamp(28px, 7vw, 40px);letter-spacing:.02em;text-transform:none;color:var(--paper);padding:6px 12px}
+    .menu-open .nav-links{opacity:1;visibility:visible}
+    .menu-open .nav{-webkit-backdrop-filter:none;backdrop-filter:none;background:transparent;border-color:transparent}
+    .menu-btn{display:inline-flex}
+    .lang{min-height:44px}
+    .nav .btn.desk{display:none}
+    .svc{grid-template-columns:48px 1fr}
+    .svc p{grid-column:2}
+  }
+  /* tablet: portafolio en 2 columnas + la tercera foto a lo ancho */
+  @media (min-width:640px) and (max-width:899px){
+    .p1,.p2{grid-column:span 6}
+    .p3{grid-column:span 12;aspect-ratio:16/10}
+  }
+  @media (max-width:639px){
+    .about .wrap{grid-template-columns:1fr}
+    .portrait{max-width:420px;width:100%;margin-left:auto !important;margin-right:auto !important}
+    .steps{grid-template-columns:1fr}
+    .eyebrow{font-size:10px;letter-spacing:.22em;line-height:1.9}
+    .grid{grid-template-columns:1fr}
+    .p1,.p2,.p3{grid-column:1/-1}
+    .t1,.t2,.t3,.t4,.t5,.t6{grid-column:1/-1;aspect-ratio:4/5}
+    .t1,.t6{aspect-ratio:4/3}
+    form{grid-template-columns:1fr}
+    .scroll-cue{display:none}
+    .hero .btn{width:100%;max-width:320px}
+  }
+  @media (max-width:359px){
+    .brand{font-size:17px}
+    .nav-right{gap:8px}
+    .lang{padding:0 10px}
+    .hero h1{font-size:42px}
+  }
+</style>
+</head>
+<body>
+ 
+<!-- ===================== INTRO (overlay) ===================== -->
+<div id="intro" aria-hidden="true">
+  <img class="cam-photo" alt="" decoding="async">
+  <div class="layer scene"><img alt="" decoding="async"><div class="layer scene-dim"></div></div>
+  <div class="layer scene-shade"></div>
+ 
+  <svg class="cam" viewBox="0 0 1200 800" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <defs>
+      <pattern id="grain" width="128" height="128" patternUnits="userSpaceOnUse"><image id="grainImg" width="128" height="128" href=""/></pattern>
+      <linearGradient id="bodyG" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#2b2b2c"/><stop offset=".08" stop-color="#1b1b1c"/><stop offset=".55" stop-color="#121213"/><stop offset="1" stop-color="#080808"/>
+      </linearGradient>
+      <linearGradient id="bodySide" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#000" stop-opacity=".55"/><stop offset=".18" stop-color="#000" stop-opacity="0"/>
+        <stop offset=".82" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".6"/>
+      </linearGradient>
+      <linearGradient id="topPlate" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#3a3a3c"/><stop offset=".5" stop-color="#1f1f20"/><stop offset="1" stop-color="#151516"/>
+      </linearGradient>
+      <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#8a8a8c"/><stop offset=".35" stop-color="#3a3a3b"/><stop offset=".6" stop-color="#9c9c9e"/><stop offset="1" stop-color="#2a2a2b"/>
+      </linearGradient>
+      <radialGradient id="barrelG" cx=".5" cy=".42" r=".6">
+        <stop offset="0" stop-color="#1e1e20"/><stop offset=".85" stop-color="#0d0d0e"/><stop offset="1" stop-color="#050505"/>
+      </radialGradient>
+      <radialGradient id="glassDeep" cx=".5" cy=".5" r=".5">
+        <stop offset="0" stop-color="#05070c" stop-opacity=".18"/><stop offset=".62" stop-color="#04060a" stop-opacity=".5"/><stop offset="1" stop-color="#010103" stop-opacity=".95"/>
+      </radialGradient>
+      <radialGradient id="coat" cx=".32" cy=".3" r=".75">
+        <stop offset="0" stop-color="#8f6bd6" stop-opacity=".32"/><stop offset=".45" stop-color="#3c8f7a" stop-opacity=".16"/><stop offset="1" stop-color="#000" stop-opacity="0"/>
+      </radialGradient>
+      <radialGradient id="spec" cx=".5" cy=".5" r=".5">
+        <stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".4" stop-color="#fff" stop-opacity=".12"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+      </radialGradient>
+      <radialGradient id="bladeG" cx=".5" cy=".5" r=".5">
+        <stop offset=".3" stop-color="#121214"/><stop offset=".85" stop-color="#1b1b1e"/><stop offset="1" stop-color="#0a0a0b"/>
+      </radialGradient>
+      <radialGradient id="backGlow" cx=".5" cy=".42" r=".5">
+        <stop offset="0" stop-color="#2a2420" stop-opacity=".55"/><stop offset=".6" stop-color="#16120f" stop-opacity=".25"/><stop offset="1" stop-color="#000" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="sheenG" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".09"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+      </linearGradient>
+      <clipPath id="bodyClip">
+        <path d="M198 232 H452 L486 132 Q490 120 503 120 H697 Q710 120 714 132 L748 232 H1002 Q1050 232 1050 280 V650 Q1050 698 1002 698 H198 Q150 698 150 650 V280 Q150 232 198 232 Z"/>
+      </clipPath>
+      <path id="ringText" d="M600 440 m-197 0 a197 197 0 1 1 394 0 a197 197 0 1 1 -394 0"/>
+    </defs>
+ 
+    <g id="camBody">
+      <!-- soft floor light / backdrop glow -->
+      <ellipse cx="600" cy="470" rx="640" ry="360" fill="url(#backGlow)"/>
+      <!-- strap lugs -->
+      <rect x="128" y="300" width="26" height="40" rx="8" fill="url(#metal)" opacity=".7"/>
+      <rect x="1046" y="300" width="26" height="40" rx="8" fill="url(#metal)" opacity=".7"/>
+      <!-- body -->
+      <g clip-path="url(#bodyClip)">
+        <rect x="150" y="110" width="900" height="600" fill="url(#bodyG)"/>
+        <!-- leatherette panels -->
+        <rect x="150" y="300" width="900" height="400" fill="#0d0d0e"/>
+        <rect x="150" y="300" width="900" height="400" fill="url(#grain)" opacity=".09"/>
+        <!-- grip (viewer's left) -->
+        <path d="M150 270 H318 Q352 270 356 310 L364 660 Q364 698 330 698 H150 Z" fill="#0a0a0b"/>
+        <path d="M150 270 H318 Q352 270 356 310 L364 660 Q364 698 330 698 H150 Z" fill="url(#grain)" opacity=".12"/>
+        <path d="M318 272 Q350 274 354 310 L362 655" fill="none" stroke="#3a3a3c" stroke-width="2" opacity=".6"/>
+        <!-- top plate band -->
+        <rect x="150" y="110" width="900" height="190" fill="url(#topPlate)" opacity=".9"/>
+        <path d="M150 300 H1050" stroke="#2f2f31" stroke-width="2"/>
+        <path d="M150 302 H1050" stroke="#000" stroke-width="2" opacity=".6"/>
+        <!-- prism edge highlight -->
+        <path d="M455 232 L488 136 Q492 124 504 124 H696 Q708 124 712 136 L745 232" fill="none" stroke="#6b6b6e" stroke-width="2" opacity=".55"/>
+        <!-- light sweep -->
+        <rect id="sheen" x="-200" y="110" width="260" height="600" fill="url(#sheenG)" transform="skewX(-18)"/>
+        <rect x="150" y="110" width="900" height="600" fill="url(#bodySide)"/>
+      </g>
+      <!-- body top edge highlight -->
+      <path d="M198 233 H452 M748 233 H1002" stroke="#5c5c5f" stroke-width="2" opacity=".6"/>
+      <!-- hot shoe -->
+      <rect x="548" y="104" width="104" height="18" rx="3" fill="#1c1c1d" stroke="#4a4a4c" stroke-width="1.5"/>
+      <!-- shutter button & dial on grip -->
+      <ellipse cx="246" cy="230" rx="44" ry="9" fill="#1e1e20"/>
+      <ellipse cx="246" cy="226" rx="30" ry="7" fill="url(#metal)"/>
+      <rect x="860" y="212" width="120" height="22" rx="6" fill="#1a1a1b" stroke="#3c3c3e" stroke-width="1.5"/>
+      <g stroke="#454547" stroke-width="2"><path d="M872 215 V231 M884 215 V231 M896 215 V231 M908 215 V231 M920 215 V231 M932 215 V231 M944 215 V231 M956 215 V231 M968 215 V231"/></g>
+      <!-- AF assist window & mic holes -->
+      <circle cx="402" cy="282" r="9" fill="#2a1a12" stroke="#3b3b3d" stroke-width="2"/>
+      <g fill="#050505"><circle cx="772" cy="258" r="2.5"/><circle cx="782" cy="258" r="2.5"/><circle cx="792" cy="258" r="2.5"/><circle cx="772" cy="268" r="2.5"/><circle cx="782" cy="268" r="2.5"/><circle cx="792" cy="268" r="2.5"/></g>
+      <!-- engraved wordmark -->
+      <text x="600" y="210" text-anchor="middle" font-family="Cormorant Garamond, Georgia, serif" font-style="italic" font-size="23" fill="#8d8d90" opacity=".8" letter-spacing=".5">Alex's Vision Studio</text>
+ 
+      <!-- lens mount & barrel -->
+      <circle cx="600" cy="440" r="286" fill="#070707"/>
+      <circle cx="600" cy="440" r="280" fill="none" stroke="url(#metal)" stroke-width="5" opacity=".75"/>
+      <circle cx="600" cy="440" r="272" fill="url(#barrelG)"/>
+      <circle cx="600" cy="162" r="4" fill="#d9d4cc" opacity=".8"/>
+      <!-- focus ring knurling -->
+      <circle cx="600" cy="440" r="246" fill="none" stroke="#151516" stroke-width="40"/>
+      <circle cx="600" cy="440" r="246" fill="none" stroke="#2a2a2c" stroke-width="40" stroke-dasharray="3 5"/>
+      <circle cx="600" cy="440" r="226" fill="none" stroke="#000" stroke-width="2" opacity=".8"/>
+      <circle cx="600" cy="440" r="266" fill="none" stroke="#000" stroke-width="2" opacity=".8"/>
+      <!-- front ring with markings -->
+      <circle cx="600" cy="440" r="224" fill="#0c0c0d"/>
+      <text font-family="Manrope, Arial, sans-serif" font-size="12.5" letter-spacing="3.2" fill="#a4a4a8" opacity=".7">
+        <textPath href="#ringText" startOffset="2%">ALEX'S VISION STUDIO  ·  50mm  1:1.2  ·  Ø72mm  ·  EDITORIAL  ·  MULTI-COATED</textPath>
+      </text>
+      <circle cx="600" cy="440" r="186" fill="none" stroke="url(#metal)" stroke-width="3" opacity=".55"/>
+      <circle cx="600" cy="440" r="182" fill="#060606"/>
+      <circle cx="600" cy="440" r="166" fill="none" stroke="#18181a" stroke-width="16"/>
+    </g>
+ 
+    <!-- iris + glass effects (above the scene) -->
+    <g id="glassFx">
+      <path id="iris" fill="url(#bladeG)" fill-rule="evenodd" d=""/>
+      <path id="irisEdges" fill="none" stroke="#ffffff" stroke-opacity=".07" stroke-width="1.2" d=""/>
+      <circle cx="600" cy="440" r="150" fill="url(#glassDeep)"/>
+      <circle cx="600" cy="440" r="150" fill="url(#coat)"/>
+      <circle cx="600" cy="440" r="122" fill="none" stroke="#fff" stroke-opacity=".05" stroke-width="1.5"/>
+      <circle cx="600" cy="440" r="92" fill="none" stroke="#9c86e0" stroke-opacity=".08" stroke-width="1.5"/>
+      <circle cx="600" cy="440" r="58" fill="none" stroke="#fff" stroke-opacity=".04" stroke-width="1"/>
+      <ellipse cx="548" cy="386" rx="70" ry="34" fill="url(#spec)" transform="rotate(-38 548 386)"/>
+      <ellipse cx="530" cy="372" rx="12" ry="6" fill="#fff" opacity=".55" transform="rotate(-38 530 372)"/>
+      <ellipse cx="664" cy="508" rx="34" ry="12" fill="url(#spec)" opacity=".5" transform="rotate(-38 664 508)"/>
+      <path d="M470 470 A140 140 0 0 0 560 574" fill="none" stroke="#fff" stroke-opacity=".08" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="600" cy="440" r="150" fill="none" stroke="#000" stroke-width="4"/>
+    </g>
+  </svg>
+ 
+  <div class="layer vignette"></div>
+  <div class="layer grain"></div>
+  <button class="skip" type="button" data-i18n-attr="aria-label:skip"><span data-i18n="skip">Saltar intro</span>
+    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 2l5 4-5 4M8 2v8"/></svg>
+  </button>
+</div>
+ 
+<!-- ===================== SITE ===================== -->
+<div id="site">
+  <header class="nav" id="nav">
+    <a href="#top" class="brand" data-i18n-attr="aria-label:brandHome" aria-label="Alex's Vision Studio, inicio">Alex's <em>Vision Studio</em></a>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="#servicios" data-i18n="navSvc">Servicios</a></li>
+      <li><a href="#portafolio" data-i18n="navPort">Portafolio</a></li>
+      <li><a href="#sobre-mi" data-i18n="navAbout">Sobre mí</a></li>
+      <li><a href="#contacto" data-i18n="navContact">Contacto</a></li>
+    </ul>
+    <div class="nav-right">
+      <button class="lang" id="langBtn" type="button" aria-label="Cambiar idioma / Change language"><span data-l="es">ES</span><span class="sep">/</span><span data-l="en">EN</span></button>
+      <a href="#contacto" class="btn ghost desk" data-i18n="book">Reservar sesión</a>
+    <button class="menu-btn" id="menuBtn" type="button" aria-label="Abrir menú" aria-expanded="false" aria-controls="navLinks"><span></span></button>
+    </div>
+  </header>
+ 
+  <main>
+    <section class="hero" id="top" aria-label="Portada" data-i18n-attr="aria-label:heroLabel">
+      <div class="hero-media">
+        <img id="heroImg"
+          src="https://images.pexels.com/photos/12031176/pexels-photo-12031176.jpeg?auto=compress&cs=tinysrgb&w=1920"
+          srcset="https://images.pexels.com/photos/12031176/pexels-photo-12031176.jpeg?auto=compress&cs=tinysrgb&w=900 900w,
+                  https://images.pexels.com/photos/12031176/pexels-photo-12031176.jpeg?auto=compress&cs=tinysrgb&w=1920 1920w"
+          sizes="100vw" alt="Ceremonia de boda a la orilla del mar (imagen de muestra)" data-i18n-attr="alt:heroAlt" fetchpriority="high" decoding="async"
+          onerror="this.style.display='none'">
+        <video id="heroVid" muted playsinline preload="none" disablepictureinpicture aria-hidden="true" tabindex="-1"></video>
+        <video id="heroVid2" muted playsinline preload="none" disablepictureinpicture aria-hidden="true" tabindex="-1"></video>
+      </div>
+      <h1 class="sr-only">Alex's Vision Studio</h1>
+      <div class="hero-copy">
+        <p class="eyebrow" data-i18n="eyebrow">Fotografía editorial · Bodas · 15&nbsp;años · Parejas · Retratos</p>
+        <p class="tagline" data-i18n="tagline">Tu historia, a través de mi lente</p>
+        <a href="#portafolio" class="btn"><span data-i18n="explore">Explorar portafolio</span>
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1 7h12M8 2l5 5-5 5"/></svg>
+        </a>
+      </div>
+      <span class="scroll-cue" aria-hidden="true" data-i18n="scroll">Desliza</span>
+    </section>
+ 
+    <section class="sec services" id="servicios">
+      <div class="flow" aria-hidden="true"><span class="ph"></span><span class="glow a"></span><span class="glow b"></span></div>
+      <div class="wrap">
+        <div class="reveal">
+          <p data-i18n="svcLabel" class="label">Servicios</p>
+          <h2 data-i18n="svcTitle">Sesiones pensadas<br>para <em>tu historia</em>.</h2>
+        </div>
+        <div class="svc-list">
+          <div class="svc reveal"><span class="n">01</span><h3 data-i18n="svc1t">Bodas</h3><p data-i18n="svc1p">Cobertura documental del día completo, de los preparativos a la última canción. Discreta, cercana y sin poses forzadas.</p></div>
+          <div class="svc reveal"><span class="n">02</span><h3 data-i18n="svc2t">Sesiones de pareja</h3><p data-i18n="svc2p">Compromiso, aniversario o simplemente ustedes. Buscamos el lugar y la luz que mejor cuenten su historia.</p></div>
+          <div class="svc reveal"><span class="n">03</span><h3 data-i18n="svc3t">Retratos y familia</h3><p data-i18n="svc3p">Retratos editoriales con luz natural, para personas, familias y marcas que quieren imágenes con alma.</p></div>
+          <div class="svc reveal"><span class="n">04</span><h3 data-i18n="svc4t">15 años</h3><p data-i18n="svc4p">Sesión previa de estilo editorial y cobertura completa de la fiesta: la entrada, el vals, la familia y cada detalle de un día que solo se vive una vez. Tomas aéreas con drone disponibles.</p></div>
+        </div>
+      </div>
+    </section>
+ 
+    <section class="sec statement">
+      <div class="eye-bg" aria-hidden="true">
+        <span class="eye-glow"></span>
+        <svg class="eye-iris" viewBox="-50 -50 100 100" aria-hidden="true">
+          <g class="ring" fill="none" stroke="currentColor"><circle r="49.6" stroke-width=".25"/><circle r="46" stroke-width=".18"/><circle r="44" stroke-width=".35"/>
+            <g stroke-width=".22"><path d="M47.00 0.00L49.40 0.00"/><path d="M46.74 4.91L48.13 5.06"/><path d="M45.97 9.77L47.34 10.06"/><path d="M44.70 14.52L46.03 14.96"/><path d="M42.94 19.12L44.22 19.69"/><path d="M40.70 23.50L42.78 24.70"/><path d="M38.02 27.63L39.16 28.45"/><path d="M34.93 31.45L35.97 32.39"/><path d="M31.45 34.93L32.39 35.97"/><path d="M27.63 38.02L28.45 39.16"/><path d="M23.50 40.70L24.70 42.78"/><path d="M19.12 42.94L19.69 44.22"/><path d="M14.52 44.70L14.96 46.03"/><path d="M9.77 45.97L10.06 47.34"/><path d="M4.91 46.74L5.06 48.13"/><path d="M0.00 47.00L0.00 49.40"/><path d="M-4.91 46.74L-5.06 48.13"/><path d="M-9.77 45.97L-10.06 47.34"/><path d="M-14.52 44.70L-14.96 46.03"/><path d="M-19.12 42.94L-19.69 44.22"/><path d="M-23.50 40.70L-24.70 42.78"/><path d="M-27.63 38.02L-28.45 39.16"/><path d="M-31.45 34.93L-32.39 35.97"/><path d="M-34.93 31.45L-35.97 32.39"/><path d="M-38.02 27.63L-39.16 28.45"/><path d="M-40.70 23.50L-42.78 24.70"/><path d="M-42.94 19.12L-44.22 19.69"/><path d="M-44.70 14.52L-46.03 14.96"/><path d="M-45.97 9.77L-47.34 10.06"/><path d="M-46.74 4.91L-48.13 5.06"/><path d="M-47.00 0.00L-49.40 0.00"/><path d="M-46.74 -4.91L-48.13 -5.06"/><path d="M-45.97 -9.77L-47.34 -10.06"/><path d="M-44.70 -14.52L-46.03 -14.96"/><path d="M-42.94 -19.12L-44.22 -19.69"/><path d="M-40.70 -23.50L-42.78 -24.70"/><path d="M-38.02 -27.63L-39.16 -28.45"/><path d="M-34.93 -31.45L-35.97 -32.39"/><path d="M-31.45 -34.93L-32.39 -35.97"/><path d="M-27.63 -38.02L-28.45 -39.16"/><path d="M-23.50 -40.70L-24.70 -42.78"/><path d="M-19.12 -42.94L-19.69 -44.22"/><path d="M-14.52 -44.70L-14.96 -46.03"/><path d="M-9.77 -45.97L-10.06 -47.34"/><path d="M-4.91 -46.74L-5.06 -48.13"/><path d="M-0.00 -47.00L-0.00 -49.40"/><path d="M4.91 -46.74L5.06 -48.13"/><path d="M9.77 -45.97L10.06 -47.34"/><path d="M14.52 -44.70L14.96 -46.03"/><path d="M19.12 -42.94L19.69 -44.22"/><path d="M23.50 -40.70L24.70 -42.78"/><path d="M27.63 -38.02L28.45 -39.16"/><path d="M31.45 -34.93L32.39 -35.97"/><path d="M34.93 -31.45L35.97 -32.39"/><path d="M38.02 -27.63L39.16 -28.45"/><path d="M40.70 -23.50L42.78 -24.70"/><path d="M42.94 -19.12L44.22 -19.69"/><path d="M44.70 -14.52L46.03 -14.96"/><path d="M45.97 -9.77L47.34 -10.06"/><path d="M46.74 -4.91L48.13 -5.06"/></g></g>
+          <g class="blades" fill="none" stroke="currentColor" stroke-width=".3"><path d="M0.00 -15.00L12.99 -7.50L12.99 7.50L0.00 15.00L-12.99 7.50L-12.99 -7.50Z" stroke-width=".45"/><path d="M0.00 -15.00L42.90 9.77M12.99 -7.50L12.99 42.04M12.99 7.50L-29.91 32.27M0.00 15.00L-42.90 -9.77M-12.99 7.50L-12.99 -42.04M-12.99 -7.50L29.91 -32.27"/></g>
+        </svg>
+        <span class="eye-flare"></span>
+        <div class="eye-scale"><span style="left:0%">0.45</span><span style="left:14%">0.6</span><span style="left:30%">0.8</span><span style="left:46%">1</span><span class="now" style="left:62%">1.5 m</span><span style="left:76%">3</span><span style="left:88%">10</span><span style="left:100%">∞</span><i class="mk"></i></div>
+      </div>
+      <div class="wrap reveal">
+        <p data-i18n="stLabel" class="label">La mirada</p>
+        <p data-i18n="stText">Fotografío lo que no se ensaya: una mirada, una risa a destiempo, <em>la luz justa</em> sobre un momento que solo ocurre una vez.</p>
+      </div>
+    </section>
+ 
+    <section class="sec" id="portafolio">
+      <div class="wrap">
+        <div class="port-head reveal">
+          <div>
+            <p data-i18n="portLabel" class="label">Portafolio</p>
+            <h2 data-i18n="portTitle">Historias <em>reales</em>,<br>luz natural.</h2>
+          </div>
+        </div>
+        <div class="grid">
+          <figure class="tile p1 reveal"><img loading="lazy" decoding="async" data-i18n-attr="alt:photoAlt" alt="Fotografía de Alex's Vision Studio"
+            src="https://res.cloudinary.com/dd3tduggc/image/upload/f_auto,q_auto,w_1200/v1790836750/6D31D8B8-F0FA-403B-91B5-9CE476BCFFCC_bmeeql.png"
+            srcset="https://res.cloudinary.com/dd3tduggc/image/upload/f_auto,q_auto,w_700/v1790836750/6D31D8B8-F0FA-403B-91B5-9CE476BCFFCC_bmeeql.png 700w, https://res.cloudinary.com/dd3tduggc/image/upload/f_auto,q_auto,w_1200/v1790836750/6D31D8B8-F0FA-403B-91B5-9CE476BCFFCC_bmeeql.png 1200w, https://res.cloudinary.com/dd3tduggc/image/upload/f_auto,q_auto,w_1800/v1790836750/6D31D8B8-F0FA-403B-91B5-9CE476BCFFCC_bmeeql.png 1800w"
+            sizes="(max-width:639px) 100vw, 33vw"
+            onerror="if(!this.dataset.retry){this.dataset.retry=1;this.removeAttribute('srcset');this.src='https://res.cloudinary.com/dd3tduggc/image/upload/v1790836750/6D31D8B8-F0FA-403B-91B5-9CE476BCFFCC_bmeeql.png'}"></figure>
+          <figure class="tile p2 reveal"><img loading="lazy" decoding="async" data-i18n-attr="alt:photoAlt" alt="Fotografía de Alex's Vision Studio"
+            src="https://res.cloudinary.com/dd3tduggc/image/upload/f_auto,q_auto,w_1200/v1790836750/1D248CF1-D3D7-43E1-AFDE-6781F39512B4_xhn5mg.png"
+            srcset="https://res.cloudinary.com/dd3tduggc/image/upload/f_auto,q_auto,w_700/v1790836750/1D248CF1-D3D7-43E1-AFDE-6781F39512B4_xhn5mg.png 700w, https://res.cloudinary.com/dd3tduggc/image/upload/f_auto,q_auto,w_1200/v1790836750/1D248CF1-D3D7-43E1-AFDE-6781F39512B4_xhn5mg.png 1200w, https://res.cloudinary.com/dd3tduggc/image/upload/f_auto,q_auto,w_1800/v1790836750/1D248CF1-D3D7-43E1-AFDE-6781F39512B4_xhn5mg.png 1800w"
+            sizes="(max-width:639px) 100vw, 33vw"
+            onerror="if(!this.dataset.retry){this.dataset.retry=1;this.removeAttribute('srcset');this.src='https://res.cloudinary.com/dd3tduggc/image/upload/v1790836750/1D248CF1-D3D7-43E1-AFDE-6781F39512B4_xhn5mg.png'}"></figure>
+          <figure class="tile p3 reveal"><img loading="lazy" decoding="async" data-i18n-attr="alt:photoAlt" alt="Fotografía de Alex's Vision Studio"
+            src="https://res.cloudinary.com/dd3tduggc/image/upload/f_auto,q_auto,w_1200/v1790836751/51949FC6-7974-4423-9B14-9E029167FBDF_hk4yad.png"
+            srcset="https://res.cloudinary.com/dd3tduggc/image/upload/f_auto,q_auto,w_700/v1790836751/51949FC6-7974-4423-9B14-9E029167FBDF_hk4yad.png 700w, https://res.cloudinary.com/dd3tduggc/image/upload/f_auto,q_auto,w_1200/v1790836751/51949FC6-7974-4423-9B14-9E029167FBDF_hk4yad.png 1200w, https://res.cloudinary.com/dd3tduggc/image/upload/f_auto,q_auto,w_1800/v1790836751/51949FC6-7974-4423-9B14-9E029167FBDF_hk4yad.png 1800w"
+            sizes="(max-width:639px) 100vw, 33vw"
+            onerror="if(!this.dataset.retry){this.dataset.retry=1;this.removeAttribute('srcset');this.src='https://res.cloudinary.com/dd3tduggc/image/upload/v1790836751/51949FC6-7974-4423-9B14-9E029167FBDF_hk4yad.png'}"></figure>
+        </div>
+      </div>
+    </section>
+ 
+    <section class="sec about" id="sobre-mi">
+      <div class="wrap">
+        <figure class="portrait has-photo ev" style="margin:0">
+          <img class="portrait-img" src="https://res.cloudinary.com/dd3tduggc/image/upload/f_auto,q_auto,w_1000/v1790836105/1430A47A-1401-4F96-83F8-7A6BC5DD916A_fzc0eg.png"
+            alt="Alex, fotógrafo" data-i18n-attr="alt:portraitAlt" decoding="async"
+            onerror="if(!this.dataset.retry){this.dataset.retry=1;this.src='https://res.cloudinary.com/dd3tduggc/image/upload/v1790836105/1430A47A-1401-4F96-83F8-7A6BC5DD916A_fzc0eg.png'}else{this.remove();this.parentNode&&this.parentNode.classList.remove('has-photo')}">
+          <span class="br u" aria-hidden="true"><b>−2 EV</b></span>
+          <span class="br o" aria-hidden="true"><b>+2 EV</b></span>
+          <span class="ev-scale" aria-hidden="true"><span class="ticks"></span><span class="mk"></span>
+            <span class="lbl"><span>−2</span><span>−1</span><span>0</span><span>+1</span><span>+2</span></span></span>
+          <span>Alex</span>
+        </figure>
+        <div class="reveal">
+          <p data-i18n="aboutLabel" class="label">Sobre mí</p>
+          <h2 data-i18n="aboutTitle">Hola, soy <em>Alex</em>.</h2>
+          <p data-i18n="aboutP1">Creo que las mejores fotografías no se fabrican: se encuentran. Mi trabajo consiste en estar presente, observar y esperar el instante en que todo encaja: la luz, el gesto y la emoción.</p>
+          <p data-i18n="aboutP2">Trabajo con luz natural y una mirada editorial, para que tus fotos se sientan auténticas hoy y dentro de veinte años.</p>
+          <p class="sign">— Alex</p>
+        </div>
+      </div>
+    </section>
+ 
+    <section class="sec process">
+      <div class="wrap">
+        <div class="reveal">
+          <p data-i18n="procLabel" class="label">Cómo trabajamos</p>
+          <h2 data-i18n="procTitle">Simple, cercano, <em>sin prisas</em>.</h2>
+        </div>
+        <div class="steps">
+          <div class="step reveal"><h3 data-i18n="st1t">Conversamos</h3><p data-i18n="st1p">Me cuentas tu historia, la fecha y lo que imaginas. Resolvemos dudas y definimos la sesión.</p></div>
+          <div class="step reveal"><h3 data-i18n="st2t">Fotografiamos</h3><p data-i18n="st2p">Elegimos el lugar y la hora de mejor luz. Tú solo disfrutas; yo me encargo del resto.</p></div>
+          <div class="step reveal"><h3 data-i18n="st3t">Recibes tu galería</h3><p data-i18n="st3p">Una galería privada, editada con cuidado y lista para compartir e imprimir.</p></div>
+        </div>
+      </div>
+    </section>
+ 
+    <section class="sec contact" id="contacto">
+      <div class="wrap">
+        <div class="contact-info reveal">
+          <p data-i18n="ctLabel" class="label">Contacto</p>
+          <h2 data-i18n="ctTitle">Cuéntame <em>tu historia</em>.</h2>
+          <p data-i18n="ctText">Escríbeme con la fecha y el tipo de sesión que te interesa. Te responderé con disponibilidad y los siguientes pasos.</p>
+        </div>
+        <form id="contactForm" class="reveal" novalidate>
+          <div class="field"><label data-i18n="fName" for="f-name">Nombre</label><input id="f-name" name="nombre" autocomplete="name" required></div>
+          <div class="field"><label data-i18n="fEmail" for="f-email">Correo</label><input id="f-email" name="email" type="email" autocomplete="email" required></div>
+          <div class="field"><label data-i18n="fPhone" for="f-phone">Teléfono</label><input id="f-phone" name="telefono" type="tel" autocomplete="tel"></div>
+          <div class="field"><label data-i18n="fType" for="f-type">Tipo de sesión</label>
+            <select id="f-type" name="tipo"><option value="pareja" data-i18n="opt1">Sesión de pareja</option><option value="boda" data-i18n="opt2">Boda</option><option value="quince" data-i18n="opt5">15 años</option><option value="retratos" data-i18n="opt3">Retratos / familia</option><option value="otro" data-i18n="opt4">Otro</option></select></div>
+          <div class="field full"><label data-i18n="fDate" for="f-date">Fecha aproximada</label><input id="f-date" name="fecha" type="date"></div>
+          <div class="field full"><label data-i18n="fMsg" for="f-msg">Mensaje</label><textarea id="f-msg" name="mensaje" required></textarea></div>
+          <div class="form-foot">
+            <button class="btn" type="submit"><span data-i18n="send">Enviar mensaje</span>
+              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1 7h12M8 2l5 5-5 5"/></svg></button>
+            <p class="form-msg" id="formMsg" role="status" aria-live="polite"></p>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+ 
+  <footer>
+    <div class="wrap">
+      <span class="brand">Alex's <em>Vision Studio</em></span>
+      <nav aria-label="Pie de página" data-i18n-attr="aria-label:footNav"><a href="#servicios" data-i18n="navSvc">Servicios</a><a href="#portafolio" data-i18n="navPort">Portafolio</a><a href="#sobre-mi" data-i18n="navAbout">Sobre mí</a><a href="#contacto" data-i18n="navContact">Contacto</a></nav>
+      <span>© <span id="yr"></span> Alex's Photografor</span>
+    </div>
+  </footer>
+</div>
+ 
+<script>
+/* =============================================================
+   CONFIGURACIÓN
+   ============================================================= */
+const CFG = {
+  /* VIDEO (opcional). Si se define, sustituye a la animación.
+     introVideo: 'assets/intro/intro-16x9.mp4',
+     introVideoPortrait: 'assets/intro/intro-9x16.mp4',   // teléfonos en vertical
+     introPoster: 'assets/intro/intro-poster.jpg'          // primer fotograma */
+  introVideo: '',
+  introVideoPortrait: '',
+  introPoster: '',
+ 
+  /* FOTO REAL DE CÁMARA (opcional). Si se define, reemplaza la cámara vectorial.
+     lensX / lensY = centro del cristal (fracción 0–1 del ancho / alto de la foto)
+     lensR         = radio del cristal (fracción 0–1 del ANCHO de la foto)
+     cameraPhoto: { src: 'assets/intro/camera-front.jpg', lensX: .5, lensY: .56, lensR: .14 } */
+  cameraPhoto: null,
+ 
+  /* Formulario: URL de Google Apps Script (o similar). Vacío = modo demostración. */
+  formEndpoint: '',
+ 
+  /* VIDEO DE FONDO DE LA PORTADA — secuencia en bucle, sin audio, con fundido entre tomas.
+     1) boda en la playa a nivel de suelo  →  2) el drone sube y vuela sobre la ceremonia.
+     La foto de portada se ve mientras carga y se queda si los videos fallan,
+     si hay "reducir movimiento" o ahorro de datos.
+     drone: true → la toma entra con efecto de "despegue" (sube y se abre el plano).
+     Para usar tus propias tomas (las de Alex): súbelas a Cloudinary y cambia los src, p. ej.
+     'https://res.cloudinary.com/TU_CUENTA/video/upload/q_auto,w_1920/boda-suelo.mp4'
+     Recomendado por toma: MP4 H.264, 1920×1080, 6–12 s, menos de 8 MB. srcMobile = versión vertical opcional. */
+  heroSequence: [
+    { src: 'https://videos.pexels.com/video-files/11037944/11037944-hd_2560_1440_24fps.mp4', seconds: 11, drone: true }
+  ],
+ 
+ 
+  introDuration: 10 /* segundos: cámara → lente → boda en la playa → subida de drone */
+};
+ 
+/* =============================================================
+   IDIOMA · ES / EN
+   ============================================================= */
+const I18N = {
+  en: {
+    docTitle: "Alex's Photografor — Your story, through my lens",
+    docDesc: "Alex's Photografor — editorial photography for couples, weddings and portraits. Your story, through my lens.",
+    skip: 'Skip intro', brandHome: "Alex's Vision Studio, home",
+    navPort: 'Portfolio', navSvc: 'Services', navAbout: 'About', navContact: 'Contact', book: 'Book a session',
+    heroLabel: 'Home', heroAlt: 'Wedding ceremony by the sea (sample image)', heroSample: 'Sample image & video · Pexels',
+    eyebrow: 'Editorial photography · Weddings · Quinceañeras · Couples · Portraits',
+    tagline: 'Your story, through my lens', explore: 'Explore portfolio', scroll: 'Scroll',
+    stLabel: 'The eye',
+    stText: 'I photograph what can’t be rehearsed: a glance, a laugh out of time, <em>the perfect light</em> on a moment that only happens once.',
+    portLabel: 'Portfolio', portTitle: 'Real <em>stories</em>,<br>natural light.',
+    portLead: 'A selection of couple sessions, weddings and portraits. Every story is told at its own pace.',
+    portNote: 'Images marked “Sample” are Pexels stock photos used as design references; they are not Alex’s work.',
+    sample: 'Sample', catCouples: 'Couples', catStories: 'Stories',
+    photoAlt: 'Photograph by Alex’s Vision Studio', cap1: 'Sunset', cap2: 'Low tide', cap3: 'Stroll', cap4: 'Together', cap5: 'Shoreline', cap6: 'Golden hour',
+    alt1: 'Sample image: couple at sunset', alt2: 'Sample image: couple on the beach', alt3: 'Sample image: couple walking',
+    alt4: 'Sample image: couple holding hands', alt5: 'Sample image: couple at the shoreline', alt6: 'Sample image: couple at sunset on the beach',
+    svcLabel: 'Services', svcTitle: 'Sessions designed<br>around <em>your story</em>.',
+    svc1t: 'Weddings', svc1p: 'Full-day documentary coverage, from getting ready to the last song. Discreet, close and never posed.',
+    svc2t: 'Couple sessions', svc2p: 'Engagement, anniversary or simply the two of you. We find the place and the light that best tell your story.',
+    svc3t: 'Portraits & family', svc3p: 'Editorial portraits in natural light, for people, families and brands who want images with soul.',
+    svc4t: 'Quinceañeras', svc4p: 'An editorial-style pre-party session and full coverage of the celebration: the grand entrance, the waltz, the family and every detail of a once-in-a-lifetime day. Aerial drone shots available.',
+    portraitAlt: 'Alex, photographer',
+    aboutLabel: 'About me', aboutTitle: 'Hi, I’m <em>Alex</em>.',
+    aboutP1: 'I believe the best photographs aren’t made — they’re found. My work is about being present, observing and waiting for the moment when everything comes together: the light, the gesture and the emotion.',
+    aboutP2: 'I work with natural light and an editorial eye, so your photos feel authentic today and twenty years from now.',
+    procLabel: 'How we work', procTitle: 'Simple, personal, <em>unhurried</em>.',
+    st1t: 'We talk', st1p: 'You tell me your story, the date and what you have in mind. We answer your questions and plan the session.',
+    st2t: 'We shoot', st2p: 'We choose the place and the hour with the best light. You just enjoy it; I take care of the rest.',
+    st3t: 'You get your gallery', st3p: 'A private gallery, carefully edited and ready to share and print.',
+    ctLabel: 'Contact', ctTitle: 'Tell me <em>your story</em>.',
+    ctText: 'Write to me with the date and the type of session you’re interested in. I’ll reply with availability and next steps.',
+    fName: 'Name', fEmail: 'Email', fPhone: 'Phone', fType: 'Session type', fDate: 'Approximate date', fMsg: 'Message',
+    opt1: 'Couple session', opt2: 'Wedding', opt3: 'Portraits / family', opt4: 'Other', opt5: 'Quinceañera', send: 'Send message',
+    footNav: 'Footer',
+    menuOpen: 'Open menu', menuClose: 'Close menu',
+    lbLabel: 'Photo gallery', lbOpen: 'View photo', lbClose: 'Close', lbPrev: 'Previous photo', lbNext: 'Next photo',
+    formInvalid: 'Please fill in your name, email and message.',
+    formDemo: 'Demo mode: the form’s sending endpoint isn’t set up yet.',
+    formSending: 'Sending…', formOk: 'Thank you! I’ll get back to you very soon.', formErr: 'Couldn’t send. Please try again.'
+  },
+  es: {
+    menuOpen: 'Abrir menú', menuClose: 'Cerrar menú',
+    lbLabel: 'Galería de fotos', lbOpen: 'Ver foto', lbClose: 'Cerrar', lbPrev: 'Foto anterior', lbNext: 'Foto siguiente',
+    formInvalid: 'Completa nombre, correo y mensaje.',
+    formDemo: 'Formulario en modo demostración: falta configurar el envío.',
+    formSending: 'Enviando…', formOk: '¡Gracias! Te responderé muy pronto.', formErr: 'No se pudo enviar. Inténtalo de nuevo.'
+  }
+};
+const LANG = (function () {
+  const html = document.documentElement;
+  const textEls = [...document.querySelectorAll('[data-i18n]')];
+  const attrEls = [...document.querySelectorAll('[data-i18n-attr]')];
+  const metaDesc = document.querySelector('meta[name="description"]');
+  // El español del HTML es la versión original: se guarda para volver a él
+  const ES = { docTitle: document.title, docDesc: metaDesc ? metaDesc.content : '' };
+  textEls.forEach(el => { ES[el.dataset.i18n] = el.innerHTML; });
+  attrEls.forEach(el => el.dataset.i18nAttr.split(';').forEach(pair => {
+    const [attr, key] = pair.split(':'); if (!(key in ES)) ES[key] = el.getAttribute(attr) || '';
+  }));
+  Object.assign(I18N.es, ES, I18N.es);
+  let current = 'es';
+  function t(key) { return (I18N[current] && I18N[current][key]) || I18N.es[key] || ''; }
+  function set(lang) {
+    current = lang === 'en' ? 'en' : 'es';
+    html.lang = current;
+    textEls.forEach(el => { const v = t(el.dataset.i18n); if (v) el.innerHTML = v; });
+    attrEls.forEach(el => el.dataset.i18nAttr.split(';').forEach(pair => {
+      const [attr, key] = pair.split(':'); const v = t(key); if (v) el.setAttribute(attr, v);
+    }));
+    document.title = t('docTitle');
+    if (metaDesc) metaDesc.content = t('docDesc');
+    try { localStorage.setItem('ap_lang', current); } catch (e) {}
+    document.dispatchEvent(new CustomEvent('langchange', { detail: current }));
+  }
+  let saved = null;
+  try { saved = localStorage.getItem('ap_lang'); } catch (e) {}
+  const qLang = (location.search.match(/[?&]lang=(es|en)\b/) || [])[1];
+  const initial = qLang || saved || ((navigator.language || 'es').toLowerCase().startsWith('en') ? 'en' : 'es');
+  set(initial);
+  document.getElementById('langBtn').addEventListener('click', () => set(current === 'es' ? 'en' : 'es'));
+  return { t, set, get current() { return current; } };
+})();
+ 
+/* =============================================================
+   VIDEO DE FONDO DE LA PORTADA — secuencia suelo → drone
+   Empieza cuando termina la intro; cada toma entra con fundido.
+   La toma de drone entra "despegando" (el plano sube y se abre).
+   ============================================================= */
+const HeroVideo = (function () {
+  const vids = [document.getElementById('heroVid'), document.getElementById('heroVid2')].filter(Boolean);
+  const hero = document.getElementById('top');
+  const clips = (CFG.heroSequence || []).filter(c => c && c.src);
+  let started = false, cur = 0, slot = 0, timer = 0, visible = true, hasActive = false;
+  const bad = new Set();
+  function allowed() {
+    return vids.length >= 2 && clips.length > 0;
+  }
+  const portrait = () => innerHeight > innerWidth * 1.05;
+  const srcOf = c => (portrait() && c.srcMobile) ? c.srcMobile : c.src;
+  function prep(v, c) {
+    v.muted = true; v.playsInline = true; v.setAttribute('muted', ''); v.setAttribute('playsinline', '');
+    v.preload = 'auto';
+    const s = srcOf(c);
+    if (v.getAttribute('src') !== s) { v.src = s; v.load(); }
+  }
+  function nextGood(from) {
+    for (let k = 1; k <= clips.length; k++) { const j = (from + k) % clips.length; if (!bad.has(j)) return j; }
+    return -1;
+  }
+  function play(i) {
+    clearTimeout(timer);
+    const c = clips[i], v = vids[slot ^ 1], prev = vids[slot];
+    let done = false;
+    const off = () => { v.removeEventListener('playing', ok); v.removeEventListener('error', fail); };
+    function fail() {
+      if (done) return; done = true; off(); bad.add(i);
+      const j = nextGood(i);
+      if (j === -1) { if (!hasActive) stop(); return; }
+      if (hasActive && j === cur) { vids[slot].loop = true; return; }  // solo queda la toma que ya se ve
+      play(j);
+    }
+    function ok() {
+      if (done) return; done = true; off();
+      v.classList.remove('rise'); void v.offsetWidth;
+      if (c.drone) v.classList.add('rise');
+      v.classList.add('on');
+      if (hasActive) prev.classList.remove('on');
+      setTimeout(() => { if (!prev.classList.contains('on')) { prev.pause(); prev.classList.remove('rise'); } }, 1700);
+      slot ^= 1; cur = i; hasActive = true;
+      schedule();
+      const n = nextGood(cur);                                   // precargar la siguiente toma
+      if (n !== -1 && n !== cur) prep(vids[slot ^ 1], clips[n]);
+    }
+    v.addEventListener('playing', ok); v.addEventListener('error', fail);
+    v.loop = false;
+    prep(v, c);
+    try { v.currentTime = 0; } catch (e) {}
+    const p = v.play();
+    if (p && p.catch) p.catch(err => {
+      // iPhone en modo de bajo consumo (u otro bloqueo de reproducción automática):
+      // no es un video roto; se reintenta en cuanto la persona toca o desplaza la pantalla
+      if (err && err.name === 'NotAllowedError') { if (done) return; done = true; off(); onGesture(() => play(i)); }
+      else fail();
+    });
+  }
+  function schedule() {
+    clearTimeout(timer);
+    const v = vids[slot], n = nextGood(cur);
+    if (n === -1 || n === cur) { v.loop = true; return; }          // una sola toma válida → bucle
+    const want = (clips[cur].seconds || 9) * 1000;
+    const left = v.duration && isFinite(v.duration) ? Math.max(1200, (v.duration - v.currentTime - 1.5) * 1000) : want;
+    timer = setTimeout(() => { (visible && !document.hidden) ? play(nextGood(cur)) : schedule(); }, Math.min(want, left));
+  }
+  let waiting = null;
+  function onGesture(fn) {
+    waiting = fn;
+    if (onGesture.bound) return; onGesture.bound = true;
+    const go = () => { if (!waiting) return; const f = waiting; waiting = null; f(); };
+    ['touchstart', 'pointerdown', 'click', 'keydown', 'scroll'].forEach(ev => addEventListener(ev, go, { passive: true }));
+  }
+  function stop() { clearTimeout(timer); vids.forEach(v => { v.pause(); v.classList.remove('on', 'rise'); }); }
+  function pause() { clearTimeout(timer); vids.forEach(v => v.pause()); }
+  function resume() { if (!hasActive) return; vids[slot].play().catch(() => {}); schedule(); }
+  function start() {
+    if (started || !allowed()) return;
+    started = true;
+    if ('IntersectionObserver' in window && hero)
+      new IntersectionObserver(es => { visible = es[0].isIntersecting; (visible && !document.hidden) ? resume() : pause(); }, { threshold: .05 }).observe(hero);
+    document.addEventListener('visibilitychange', () => (document.hidden || !visible) ? pause() : resume());
+    play(0);
+  }
+  return { start };
+})();
+ 
+/* =============================================================
+   INTRO
+   ============================================================= */
+(function () {
+  const html = document.documentElement;
+  const site = document.getElementById('site');
+  const intro = document.getElementById('intro');
+  const heroImg = document.getElementById('heroImg');
+ 
+  function revealSite() {
+    HeroVideo.start();
+    site.removeAttribute('inert');
+    html.classList.remove('intro-pending');
+    document.body.classList.add('hero-in');
+  }
+ 
+  if (!html.classList.contains('intro-pending')) {
+    intro.remove();
+    const go = () => { document.body.classList.add('hero-in'); HeroVideo.start(); };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go);
+    else go();
+    return;
+  }
+ 
+  const svg = intro.querySelector('svg.cam');
+  const camBody = svg.getElementById ? svg.getElementById('camBody') : document.getElementById('camBody');
+  const glassFx = document.getElementById('glassFx');
+  const iris = document.getElementById('iris');
+  const irisEdges = document.getElementById('irisEdges');
+  const sheen = document.getElementById('sheen');
+  const scene = intro.querySelector('.scene');
+  const sceneImg = scene.querySelector('img');
+  const sceneDim = scene.querySelector('.scene-dim');
+  const shade = intro.querySelector('.scene-shade');
+  const photo = intro.querySelector('.cam-photo');
+  const skipBtn = intro.querySelector('.skip');
+  const grain = intro.querySelector('.grain');
+ 
+  let done = false, raf = 0, t0 = 0, video = null, photoMeta = null;
+ 
+  intro.classList.add('on');
+  site.setAttribute('inert', '');
+ 
+  function finish(fast) {
+    if (done) return;
+    done = true;
+    cancelAnimationFrame(raf);
+    revealSite();
+    const dur = fast ? .45 : .9;
+    intro.style.transition = 'opacity ' + dur + 's ease';
+    intro.classList.add('done');
+    setTimeout(() => {
+      if (video) { try { video.pause(); video.removeAttribute('src'); video.load(); } catch (e) {} }
+      intro.remove();
+    }, dur * 1000 + 80);
+  }
+ 
+  skipBtn.addEventListener('click', () => finish(true));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') finish(true); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) finish(true); });
+  setTimeout(() => finish(true), (CFG.introDuration + 6) * 1000); // red de seguridad
+  setTimeout(() => skipBtn.classList.add('show'), 500);
+ 
+  /* ---------- film grain / leatherette texture ---------- */
+  try {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const x = c.getContext('2d'), id = x.createImageData(128, 128);
+    for (let i = 0; i < id.data.length; i += 4) {
+      const v = 90 + Math.random() * 120;
+      id.data[i] = id.data[i + 1] = id.data[i + 2] = v; id.data[i + 3] = 255;
+    }
+    x.putImageData(id, 0, 0);
+    const url = c.toDataURL('image/png');
+    document.getElementById('grainImg').setAttribute('href', url);
+    grain.style.backgroundImage = 'url(' + url + ')';
+  } catch (e) {}
+ 
+  /* ---------- MODO VIDEO ---------- */
+  function playVideo() {
+    svg.style.display = 'none'; scene.style.display = 'none'; shade.style.display = 'none';
+    const portrait = innerHeight > innerWidth * 1.05;
+    const src = (portrait && CFG.introVideoPortrait) ? CFG.introVideoPortrait : CFG.introVideo;
+    video = document.createElement('video');
+    video.muted = true; video.defaultMuted = true; video.playsInline = true; video.autoplay = true;
+    video.setAttribute('muted', ''); video.setAttribute('playsinline', ''); video.setAttribute('webkit-playsinline', '');
+    video.preload = 'auto';
+    if (CFG.introPoster) video.poster = CFG.introPoster;
+    video.src = src;
+    intro.insertBefore(video, skipBtn);
+    let started = false;
+    const guard = setTimeout(() => { if (!started) finish(true); }, 4000);
+    video.addEventListener('playing', () => { started = true; clearTimeout(guard); });
+    video.addEventListener('error', () => finish(true));
+    video.addEventListener('stalled', () => { if (!started) finish(true); });
+    video.addEventListener('timeupdate', () => {
+      if (video.duration && video.currentTime >= video.duration - .9) finish(false);
+    });
+    video.addEventListener('ended', () => finish(false));
+    const p = video.play();
+    if (p && p.catch) p.catch(() => finish(true));
+  }
+ 
+  /* ---------- MODO ANIMACIÓN ---------- */
+  const G = 150, CX = 600, CY = 440; // radio del cristal y centro del lente (unidades SVG)
+  const clamp = v => v < 0 ? 0 : v > 1 ? 1 : v;
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const smooth = (a, b, t) => { const k = clamp((t - a) / (b - a)); return k * k * (3 - 2 * k); };
+  const easeOut = k => 1 - Math.pow(1 - k, 3);
+  const easeInOutSine = k => -(Math.cos(Math.PI * k) - 1) / 2;
+  const easeInOut = k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+ 
+  function dims() {
+    const w = innerWidth, h = innerHeight, portrait = h > w * 1.05;
+    const u = portrait ? Math.min(.86 * w / 500, .5 * h / 500) : Math.min(.55 * h / 500, .88 * w / 960);
+    return { w, h, u, half: Math.hypot(w, h) / 2 };
+  }
+ 
+  function irisPath(ro, rot) {
+    // diafragma de 8 hojas: aro exterior (radio G) con abertura poligonal
+    const n = 8, R = G + 1, pts = [];
+    for (let i = 0; i < n; i++) {
+      const a = rot + i * 2 * Math.PI / n;
+      pts.push([CX + ro * Math.cos(a), CY + ro * Math.sin(a)]);
+    }
+    let d = `M${CX - R},${CY}a${R},${R} 0 1,0 ${2 * R},0a${R},${R} 0 1,0 ${-2 * R},0Z`;
+    d += 'M' + pts.map(p => p[0].toFixed(2) + ',' + p[1].toFixed(2)).join('L') + 'Z';
+    let e = '';
+    for (let i = 0; i < n; i++) {
+      const a = pts[i], b = pts[(i + 1) % n];
+      let dx = b[0] - a[0], dy = b[1] - a[1]; const L = Math.hypot(dx, dy); dx /= L; dy /= L;
+      const fx = b[0] - CX, fy = b[1] - CY, B = fx * dx + fy * dy, C = fx * fx + fy * fy - G * G;
+      const s = -B + Math.sqrt(Math.max(0, B * B - C));
+      e += `M${b[0].toFixed(2)},${b[1].toFixed(2)}L${(b[0] + dx * s).toFixed(2)},${(b[1] + dy * s).toFixed(2)}`;
+    }
+    return { d, e };
+  }
+ 
+  function frame(now) {
+    if (done) return;
+    try {
+      if (!t0) t0 = now;
+      const t = (now - t0) / 1000;
+      const d = dims();
+      const sEnd = d.half / (G * d.u) * 1.15;
+ 
+      // 0–2 s: cámara de frente, leve respiración · 2–7 s: acercamiento continuo al lente
+      let s;
+      if (t < 2) s = .965 + .065 * easeOut(clamp(t / 2));
+      else s = Math.exp(Math.log(1.03) + (Math.log(sEnd) - Math.log(1.03)) * easeInOut(clamp((t - 2) / 5)));
+ 
+      const k = d.u * s, R = G * k;
+      svg.setAttribute('viewBox', `${CX - d.w / 2 / k} ${CY - d.h / 2 / k} ${d.w / k} ${d.h / k}`);
+      svg.style.opacity = smooth(0, .9, t);
+ 
+      if (photoMeta) {
+        const sc = (G * d.u) / (photoMeta.r * photoMeta.w) * s;
+        photo.style.transform = `translate(${d.w / 2 - photoMeta.x * photoMeta.w * sc}px,${d.h / 2 - photoMeta.y * photoMeta.h * sc}px) scale(${sc})`;
+        photo.style.opacity = smooth(0, .9, t);
+      }
+ 
+      // barrido de luz sobre el cuerpo (0.3–2.4 s)
+      sheen.setAttribute('x', lerp(-60, 1300, smooth(.3, 2.4, t)).toFixed(1));
+ 
+      // escena dentro del cristal → escena real
+      const cp = R >= d.half * 1.01 ? 'none' : `circle(${R.toFixed(1)}px at 50% 50%)`;
+      scene.style.clipPath = cp; scene.style.webkitClipPath = cp;
+      const kReal = smooth(4.8, 6.7, t);
+      sceneImg.style.filter = kReal >= 1 ? 'none' : `blur(${(9 * (1 - kReal)).toFixed(2)}px) saturate(${(.7 + .3 * kReal).toFixed(3)})`;
+      sceneDim.style.opacity = (.78 * (1 - kReal)).toFixed(3);
+      // boda en la orilla: plano cerrado sobre los novios → el drone sube y abre el plano (6.7–9.6 s)
+      const kDrone = easeInOutSine(clamp((t - 6.7) / 2.9));
+      const sc = lerp(lerp(2.05, 1.9, smooth(4.4, 6.7, t)), 1, kDrone);
+      sceneImg.style.transform = `translate3d(0,${lerp(-3.5, 0, kDrone).toFixed(3)}%,0) rotate(${lerp(1.6, 0, kDrone).toFixed(3)}deg) scale(${sc.toFixed(4)})`;
+ 
+      // diafragma se abre y el cristal se desvanece al atravesarlo
+      const ro = lerp(68, G + 30, smooth(4.2, 5.9, t));
+      if (ro < G) { const ip = irisPath(ro, .35 + (ro / G) * .9); iris.setAttribute('d', ip.d); irisEdges.setAttribute('d', ip.e); iris.style.display = irisEdges.style.display = ''; }
+      else { iris.style.display = irisEdges.style.display = 'none'; }
+      glassFx.style.opacity = (1 - smooth(5.1, 6.3, t)).toFixed(3);
+      const bodyGone = R >= d.half * 1.01;
+      camBody.style.display = bodyGone ? 'none' : '';
+      if (photoMeta) photo.style.display = bodyGone ? 'none' : 'block';
+ 
+      // 6.4–7.4 s: el sombreado de portada aparece para empalmar con el hero
+      shade.style.opacity = smooth(8.6, 9.6, t).toFixed(3);
+ 
+      if (t >= 9.65) { finish(false); return; }
+    } catch (err) { finish(true); return; }
+    raf = requestAnimationFrame(frame);
+  }
+ 
+  function startAnimation() {
+    sceneImg.onerror = () => { sceneImg.style.display = 'none'; };
+    sceneImg.src = heroImg.currentSrc || heroImg.src;
+    const go = () => { if (!done) raf = requestAnimationFrame(frame); };
+    if (CFG.cameraPhoto && CFG.cameraPhoto.src) {
+      let settled = false;
+      const fallback = setTimeout(() => { if (!settled) { settled = true; go(); } }, 1800);
+      photo.onload = () => {
+        if (settled) return; settled = true; clearTimeout(fallback);
+        photoMeta = { w: photo.naturalWidth, h: photo.naturalHeight, x: CFG.cameraPhoto.lensX, y: CFG.cameraPhoto.lensY, r: CFG.cameraPhoto.lensR };
+        photo.style.width = photoMeta.w + 'px'; photo.style.display = 'block'; photo.style.opacity = 0;
+        camBody.style.visibility = 'hidden';
+        go();
+      };
+      photo.onerror = () => { if (!settled) { settled = true; clearTimeout(fallback); go(); } };
+      photo.src = CFG.cameraPhoto.src;
+    } else go();
+  }
+ 
+  try {
+    if (document.hidden) { finish(true); }
+    else if (CFG.introVideo) playVideo();
+    else startAnimation();
+  } catch (e) { finish(true); }
+})();
+ 
+/* =============================================================
+   SITIO
+   ============================================================= */
+(function () {
+  document.getElementById('yr').textContent = new Date().getFullYear();
+ 
+  /* Servicios en pantallas táctiles: el que está en el centro de la pantalla se ilumina */
+  try {
+    if (!matchMedia('(hover: hover) and (pointer: fine)').matches && 'IntersectionObserver' in window) {
+      const io = new IntersectionObserver(es => es.forEach(e => e.target.classList.toggle('act', e.isIntersecting)), { rootMargin: '-40% 0px -40% 0px' });
+      document.querySelectorAll('.svc').forEach(el => io.observe(el));
+    }
+  } catch (e) {}
+ 
+  /* Fondo de Servicios: usa la misma foto de la portada, difuminada, para que fluya sin corte */
+  const heroImg = document.getElementById('heroImg'), flowPh = document.querySelector('.services .flow .ph');
+  if (heroImg && flowPh) {
+    const setBg = () => { const u = heroImg.currentSrc || heroImg.src; if (u && heroImg.naturalWidth) flowPh.style.backgroundImage = 'url("' + u + '")'; };
+    if (heroImg.complete) setBg(); else heroImg.addEventListener('load', setBg, { once: true });
+  }
+ 
+  const nav = document.getElementById('nav');
+  const onScroll = () => nav.classList.toggle('scrolled', scrollY > 40);
+  addEventListener('scroll', onScroll, { passive: true }); onScroll();
+ 
+  const menuBtn = document.getElementById('menuBtn');
+  const toggleMenu = open => {
+    document.body.classList.toggle('menu-open', open);
+    menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    menuBtn.setAttribute('aria-label', LANG.t(open ? 'menuClose' : 'menuOpen'));
+  };
+  menuBtn.setAttribute('aria-label', LANG.t('menuOpen'));
+  document.addEventListener('langchange', () => menuBtn.setAttribute('aria-label', LANG.t(document.body.classList.contains('menu-open') ? 'menuClose' : 'menuOpen')));
+  menuBtn.addEventListener('click', () => toggleMenu(!document.body.classList.contains('menu-open')));
+  document.querySelectorAll('#navLinks a').forEach(a => a.addEventListener('click', () => toggleMenu(false)));
+ 
+  const els = document.querySelectorAll('.reveal');
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver(entries => entries.forEach(en => {
+      if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
+    }), { rootMargin: '0px 0px -8% 0px', threshold: .08 });
+    els.forEach(el => io.observe(el));
+  } else els.forEach(el => el.classList.add('in'));
+ 
+  const form = document.getElementById('contactForm'), msg = document.getElementById('formMsg');
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    msg.className = 'form-msg';
+    if (!form.checkValidity()) { msg.textContent = LANG.t('formInvalid'); msg.classList.add('err'); form.reportValidity(); return; }
+    const data = Object.fromEntries(new FormData(form).entries());
+    data.idioma = LANG.current;
+    if (!CFG.formEndpoint) { msg.textContent = LANG.t('formDemo'); msg.classList.add('err'); return; }
+    msg.textContent = LANG.t('formSending');
+    try {
+      await fetch(CFG.formEndpoint, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
+      form.reset(); msg.textContent = LANG.t('formOk'); msg.classList.add('ok');
+    } catch (err) { msg.textContent = LANG.t('formErr'); msg.classList.add('err'); }
+  });
+})();
+ 
+/* =============================================================
+   EFECTO PORTAFOLIO
+   Entrada: las láminas de un obturador se abren una tras otra y descubren la foto.
+   Ratón: enfoque selectivo — la foto señalada queda nítida y las demás se desenfocan.
+   Clic / toque: visor a pantalla completa con flechas, teclado y deslizar.
+   ============================================================= */
+(function () {
+  const tiles = [...document.querySelectorAll('#portafolio .tile')];
+  if (!tiles.length) return;
+  const reduce = false;   // los efectos se muestran en todos los dispositivos
+  let fine = false;
+  try { fine = matchMedia('(hover: hover) and (pointer: fine)').matches; } catch (e) {}
+  const t = k => (typeof LANG !== 'undefined' ? LANG.t(k) : k);
+  const pad = n => String(n).padStart(2, '0');
+ 
+  tiles.forEach((tile, i) => {
+    tile.classList.add('gx');
+    tile.setAttribute('tabindex', '0');
+    tile.setAttribute('role', 'button');
+    tile.insertAdjacentHTML('beforeend',
+      '<span class="slats" aria-hidden="true">' + [0, 1, 2, 3, 4, 5, 6].map(k => '<i style="--k:' + k + '"></i>').join('') + '</span>' +
+      '<span class="zoom" aria-hidden="true"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M9 3v12M3 9h12"/></svg></span>' +
+      '<span class="idx" aria-hidden="true">' + pad(i + 1) + '<small>/ ' + pad(tiles.length) + '</small></span>');
+  });
+  const labelTiles = () => tiles.forEach((tile, i) => tile.setAttribute('aria-label', t('lbOpen') + ' ' + (i + 1) + ' / ' + tiles.length));
+  labelTiles(); document.addEventListener('langchange', labelTiles);
+ 
+  /* ---- entrada: las láminas del obturador se abren una tras otra ---- */
+  if (!reduce && 'IntersectionObserver' in window) {
+    tiles.forEach(tile => tile.classList.add('sl'));
+    let batch = 0, bt;
+    const io = new IntersectionObserver(es => es.forEach(e => {
+      if (!e.isIntersecting) return;
+      io.unobserve(e.target);
+      const tile = e.target, d = batch++ * 240;
+      clearTimeout(bt); bt = setTimeout(() => batch = 0, 330);
+      setTimeout(() => {
+        tile.classList.add('slin');
+        setTimeout(() => tile.classList.remove('sl', 'slin'), 2400);
+      }, d);
+    }), { threshold: .3 });
+    tiles.forEach(tile => io.observe(tile));
+  }
+ 
+  /* ---- enfoque selectivo ----
+     Con ratón: la foto señalada queda nítida.
+     En teléfono/tablet: la foto que está en el centro de la pantalla queda nítida al desplazarse. */
+  if (tiles.length > 1) {
+    const grid = tiles[0].parentElement;
+    if (fine) {
+      tiles.forEach(tile => {
+        tile.addEventListener('pointerenter', () => { tiles.forEach(t => t.classList.toggle('infocus', t === tile)); grid.classList.add('dof'); });
+        tile.addEventListener('pointerleave', () => { tile.classList.remove('infocus'); grid.classList.remove('dof'); });
+      });
+    } else if ('IntersectionObserver' in window) {
+      const inBand = new Set();
+      const io = new IntersectionObserver(es => {
+        es.forEach(e => e.isIntersecting ? inBand.add(e.target) : inBand.delete(e.target));
+        tiles.forEach(t => t.classList.toggle('infocus', inBand.has(t)));
+        grid.classList.toggle('dof', inBand.size > 0 && inBand.size < tiles.length);
+      }, { rootMargin: '-42% 0px -42% 0px' });
+      tiles.forEach(t => io.observe(t));
+    }
+  }
+ 
+  /* ---- visor a pantalla completa ---- */
+  const icon = d => '<svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4">' + d + '</svg>';
+  const lb = document.createElement('div');
+  lb.className = 'lb'; lb.setAttribute('role', 'dialog'); lb.setAttribute('aria-modal', 'true'); lb.hidden = true;
+  lb.innerHTML =
+    '<img alt="">' +
+    '<button type="button" class="lb-close">' + icon('<path d="M4 4l10 10M14 4L4 14"/>') + '</button>' +
+    '<button type="button" class="lb-prev">' + icon('<path d="M11 3L5 9l6 6"/>') + '</button>' +
+    '<button type="button" class="lb-next">' + icon('<path d="M7 3l6 6-6 6"/>') + '</button>' +
+    '<p class="lb-count" aria-live="polite"></p>';
+  document.body.appendChild(lb);
+  const big = lb.querySelector('img'), count = lb.querySelector('.lb-count');
+  const bClose = lb.querySelector('.lb-close'), bPrev = lb.querySelector('.lb-prev'), bNext = lb.querySelector('.lb-next');
+  const labelLb = () => {
+    lb.setAttribute('aria-label', t('lbLabel'));
+    bClose.setAttribute('aria-label', t('lbClose')); bPrev.setAttribute('aria-label', t('lbPrev')); bNext.setAttribute('aria-label', t('lbNext'));
+  };
+  labelLb(); document.addEventListener('langchange', labelLb);
+  if (tiles.length < 2) { bPrev.hidden = bNext.hidden = true; }
+ 
+  let cur = 0, lastFocus = null, isOpen = false;
+  const srcOf = i => {
+    const im = tiles[i].querySelector('img'); if (!im) return '';
+    const s = im.getAttribute('src') || '';
+    return /\/upload\/[^/]*w_\d+/.test(s) ? s.replace(/w_\d+/, 'w_2200') : (im.currentSrc || s);
+  };
+  function show(i) {
+    cur = (i + tiles.length) % tiles.length;
+    const im = tiles[cur].querySelector('img');
+    big.classList.remove('shown');
+    const src = srcOf(cur);
+    big.onload = () => requestAnimationFrame(() => big.classList.add('shown'));
+    big.onerror = () => { if (im && big.src !== im.currentSrc && im.currentSrc) big.src = im.currentSrc; else big.classList.add('shown'); };
+    big.alt = im ? im.alt : '';
+    big.src = src;
+    if (big.complete && big.naturalWidth) requestAnimationFrame(() => big.classList.add('shown'));
+    count.innerHTML = pad(cur + 1) + ' <span>/ ' + pad(tiles.length) + '</span>';
+  }
+  function open(i) {
+    lastFocus = document.activeElement;
+    lb.hidden = false; isOpen = true;
+    document.documentElement.style.overflow = 'hidden';
+    show(i);
+    requestAnimationFrame(() => { lb.classList.add('open'); setTimeout(() => bClose.focus({ preventScroll: true }), 30); });
+  }
+  function close() {
+    if (!isOpen) return; isOpen = false;
+    lb.classList.remove('open'); big.classList.remove('shown');
+    document.documentElement.style.overflow = '';
+    setTimeout(() => { if (!isOpen) lb.hidden = true; }, 460);
+    if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
+  }
+  tiles.forEach((tile, i) => {
+    tile.addEventListener('click', () => open(i));
+    tile.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(i); } });
+  });
+  bClose.addEventListener('click', close);
+  bPrev.addEventListener('click', e => { e.stopPropagation(); show(cur - 1); });
+  bNext.addEventListener('click', e => { e.stopPropagation(); show(cur + 1); });
+  lb.addEventListener('click', e => { if (e.target === lb) close(); });
+  document.addEventListener('keydown', e => {
+    if (!isOpen) return;
+    if (e.key === 'Escape') close();
+    else if (e.key === 'ArrowRight') show(cur + 1);
+    else if (e.key === 'ArrowLeft') show(cur - 1);
+    else if (e.key === 'Tab') {                              // mantener el foco dentro del visor
+      const f = [bClose, bPrev, bNext].filter(b => !b.hidden);
+      const k = f.indexOf(document.activeElement);
+      e.preventDefault(); f[(k + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus();
+    }
+  });
+  let sx = 0, sy = 0;
+  lb.addEventListener('touchstart', e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+  lb.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) show(cur + (dx < 0 ? 1 : -1));
+    else if (dy > 90 && Math.abs(dy) > Math.abs(dx)) close();
+  }, { passive: true });
+})();
+ 
+/* =============================================================
+   EFECTO EN LA FOTO DE ALEX — horquillado de exposición
+   Tres tomas en abanico: subexpuesta (−2 EV), sobreexpuesta (+2 EV) y la correcta al centro.
+   La regla de exposición recorre −2 → +2 → 0 y las tomas extra se recogen detrás.
+   Al pasar el ratón las otras exposiciones vuelven a asomar.
+   ============================================================= */
+(function () {
+  const fig = document.querySelector('.portrait.ev');
+  if (!fig) return;
+  const img = fig.querySelector('.portrait-img'), brs = [...fig.querySelectorAll('.br')], mk = fig.querySelector('.ev-scale .mk');
+  const at = ev => { if (mk) mk.style.left = (50 + ev * 25) + '%'; };   // −2..+2 → 0..100 %
+  const fill = () => { const u = img.currentSrc || img.src; brs.forEach(b => b.style.backgroundImage = 'url("' + u + '")'); };
+  if (img) { if (img.complete && img.naturalWidth) fill(); else img.addEventListener('load', fill, { once: true }); }
+  const sweep = () => { at(-2); setTimeout(() => at(2), 300); setTimeout(() => at(0), 650); };
+  fig.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') sweep(); });
+  // pantallas táctiles: un toque vuelve a abrir el abanico de exposiciones
+  let peekT = 0;
+  fig.addEventListener('click', () => {
+    if (fig.classList.contains('ev-ready')) return;
+    sweep(); fig.classList.add('ev-peek'); clearTimeout(peekT);
+    peekT = setTimeout(() => fig.classList.remove('ev-peek'), 1800);
+  });
+  if (!img || !('IntersectionObserver' in window)) return;
+  fig.classList.add('ev-ready');
+  const io = new IntersectionObserver(es => es.forEach(e => {
+    if (!e.isIntersecting) return;
+    io.disconnect();
+    fill(); at(-2);
+    setTimeout(() => fig.classList.add('ev-fan'), 200);
+    setTimeout(() => at(2), 1000);
+    setTimeout(() => at(0), 1600);
+    setTimeout(() => fig.classList.add('ev-close'), 2500);
+    setTimeout(() => fig.classList.remove('ev-ready', 'ev-fan', 'ev-close'), 3800);
+  }), { threshold: .35 });
+  io.observe(fig);
+})();
+</script>
+</body>
+</html>
